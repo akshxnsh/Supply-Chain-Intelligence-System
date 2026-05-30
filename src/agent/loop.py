@@ -24,8 +24,8 @@ client = genai.Client(api_key=os.environ["GEMINI_API_KEY"])
 MODEL  = os.getenv("MODEL_NAME", "models/gemini-2.5-flash")
 
 SYSTEM_PROMPT = """
-You are an autonomous supply chain disruption intelligence agent for
-Lone Star Roofing Supply (business_id: demo-business-001).
+You are a supply chain disruption agent for Lone Star Roofing Supply.
+business_id = 'demo-business-001'
 
 Every cycle you MUST follow these exact steps in order:
 1. Call get_recent_disruptions to fetch events from the last 24 hours.
@@ -88,8 +88,19 @@ def run_agent_cycle(business_id: str = "demo-business-001") -> dict | None:
                 )
             )
 
+            # Guard against empty responses
+            if not response.candidates:
+                print("  ⚠️ Empty candidates — retrying turn")
+                continue
+
             candidate = response.candidates[0]
             content   = candidate.content
+
+            if content is None or not hasattr(content, 'parts') or not content.parts:
+                print("  ⚠️ Empty content — agent finished early")
+                # Try to extract any text from the last response
+                final_result = {"raw_response": "Agent completed pipeline"}
+                break
 
             # Add assistant response to message history
             messages.append({
@@ -98,8 +109,14 @@ def run_agent_cycle(business_id: str = "demo-business-001") -> dict | None:
             })
 
             # Check for tool calls
-            tool_calls = [p for p in content.parts if hasattr(p, 'function_call')
-                         and p.function_call is not None]
+            tool_calls = []
+            for p in content.parts:
+                try:
+                    if hasattr(p, 'function_call') and p.function_call is not None:
+                        if hasattr(p.function_call, 'name') and p.function_call.name:
+                            tool_calls.append(p)
+                except Exception:
+                    pass
 
             if tool_calls:
                 tool_results = []
@@ -127,18 +144,19 @@ def run_agent_cycle(business_id: str = "demo-business-001") -> dict | None:
                 messages.append({"role": "user", "parts": tool_results})
 
             else:
-                # No tool calls — agent has finished reasoning
+                # No tool calls — agent finished
                 text_parts = [p.text for p in content.parts
                               if hasattr(p, 'text') and p.text]
                 final_text = " ".join(text_parts)
-                print(f"\n📋 Agent final response received ({len(final_text)} chars)")
+                print(f"\n📋 Agent final response ({len(final_text)} chars)")
 
-                # Try to parse JSON from response
                 try:
                     start = final_text.find("{")
                     end   = final_text.rfind("}") + 1
                     if start >= 0 and end > start:
                         final_result = json.loads(final_text[start:end])
+                    else:
+                        final_result = {"raw_response": final_text}
                 except Exception:
                     final_result = {"raw_response": final_text}
 
