@@ -1,13 +1,13 @@
-from google.cloud import bigquery
 from datetime import datetime, timedelta
 import os, csv, tempfile
 from dotenv import load_dotenv
+
+from src.ingestion.bq_client import client
 
 load_dotenv()
 
 PROJECT_ID = "akshxnsh-supplychain"
 DATASET = "supply_chain"
-client = bigquery.Client(project=PROJECT_ID)
 
 def load_rows(table_id: str, rows: list[dict]):
     """Load rows via CSV — works in BigQuery Sandbox (no streaming needed)."""

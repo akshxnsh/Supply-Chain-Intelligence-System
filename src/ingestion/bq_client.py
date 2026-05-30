@@ -1,4 +1,5 @@
 from google.cloud import bigquery
+from google.oauth2 import service_account
 from datetime import datetime, timedelta
 import os
 from dotenv import load_dotenv
@@ -7,7 +8,17 @@ load_dotenv()
 
 PROJECT_ID = "akshxnsh-supplychain"
 DATASET = "supply_chain"
-client = bigquery.Client(project=PROJECT_ID)
+
+KEY_FILE = os.getenv(
+    "GOOGLE_APPLICATION_CREDENTIALS",
+    os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "..", "gcp-key.json"))
+)
+
+if os.path.exists(KEY_FILE):
+    credentials = service_account.Credentials.from_service_account_file(KEY_FILE)
+    client = bigquery.Client(project=PROJECT_ID, credentials=credentials)
+else:
+    client = bigquery.Client(project=PROJECT_ID)
 
 def run_query(sql: str) -> list[dict]:
     rows = client.query(sql).result()

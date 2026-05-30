@@ -36,13 +36,14 @@ Every cycle you MUST follow these exact steps in order:
 6. If exposure > 5000, call search_alternative_suppliers for the affected
    product category, excluding the disrupted country.
 7. Call score_suppliers on the results to rank the top 3.
-8. Call generate_purchase_order for the top-ranked supplier.
-9. Call generate_customer_email for affected customers.
+8. Calculate the minimum quantity needed to fulfill near-future orders. Since alternative supplier details include MOQ (Minimum Order Quantity) and unit price, calculate the quantity as: max(ceil(total_at_risk_value / alternative_supplier_unit_price), alternative_supplier_moq) to minimize cost/loss. Then call generate_purchase_order for the top-ranked supplier using this calculated quantity.
+9. Call generate_owner_email to draft a notification digest for the business owner describing the disruption, the affected primary supplier, financial exposure, recommended alternative, and a summary of the drafted PO (minimal quantity and cost).
 10. Return a JSON summary with keys: disruption, exposure, top_supplier,
-    purchase_order, customer_email, severity_score.
+    purchase_order, owner_email, severity_score.
 
 Never skip steps. Always complete the full pipeline.
 """
+
 
 def handle_tool_call(tool_name: str, tool_args: dict) -> str:
     """Execute a tool call and return the result as a string."""

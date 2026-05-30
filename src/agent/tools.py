@@ -83,34 +83,53 @@ Note: This order is placed due to supply chain disruption
 """
     return json.dumps({"purchase_order": po, "total_value": total})
 
-def generate_customer_email(customer_count: int, original_eta: str,
-                             revised_eta: str, delay_days: int,
-                             disruption_type: str) -> str:
+def generate_owner_email(disruption_summary: str,
+                         affected_supplier: str,
+                         exposure_usd: float,
+                         estimated_loss_usd: float,
+                         delay_days: int,
+                         recommended_alternative: str,
+                         po_quantity: int,
+                         po_total_value: float) -> str:
     email = f"""
-Subject: Important Update: Delivery Delay Notification
+Subject: URGENT: Supply Chain Disruption Alert & Action Required
 
-Dear Valued Customer,
+Dear Lone Star Roofing Supply Management,
 
-We are writing to inform you of a delay affecting your pending order.
+This is an automated alert regarding a detected supply chain disruption that requires your immediate attention and approval.
 
-Due to {disruption_type}, our primary supplier has been disrupted.
-We have already secured an alternative supplier to fulfill your order.
+DISRUPTION DETAILS:
+-------------------
+{disruption_summary}
 
-Original delivery date: {original_eta}
-Revised delivery date:  {revised_eta} ({delay_days} day delay)
+IMPACT ON OPERATIONS:
+--------------------
+* Affected Primary Supplier: {affected_supplier}
+* Estimated Delay:           {delay_days} days
+* Total Value at Risk:       ${exposure_usd:,.2f}
+* Estimated Revenue Loss:    ${estimated_loss_usd:,.2f}
 
-We sincerely apologize for this inconvenience. We are working
-around the clock to minimize the impact on your business.
+PROPOSED MITIGATION SOLUTION:
+----------------------------
+We have identified and scored alternative suppliers. The recommended alternative is:
+* Recommended Supplier:      {recommended_alternative}
 
-Please contact us directly if you have any questions.
+We have drafted a minimal-loss Purchase Order to fulfill near-future orders and keep the business running:
+* Order Quantity:            {po_quantity} units
+* PO Total Value:            ${po_total_value:,.2f}
+
+ACTION REQUIRED:
+----------------
+Please review and approve the drafted Purchase Order and corresponding actions via your Streamlit dashboard.
 
 Best regards,
-Lone Star Roofing Supply
+Supply Chain Disruption Intelligence Agent
 """
     return json.dumps({
         "email_draft": email,
-        "recipients_count": customer_count
+        "recipient": "owner@lonestarroofing.com"
     })
+
 
 # ── Tool Definitions for Gemini ───────────────────────────────────────────────
 
@@ -240,7 +259,10 @@ TOOL_DEFINITIONS = types.Tool(
                     "supplier_name":    types.Schema(type=types.Type.STRING),
                     "supplier_country": types.Schema(type=types.Type.STRING),
                     "product":          types.Schema(type=types.Type.STRING),
-                    "quantity":         types.Schema(type=types.Type.INTEGER),
+                    "quantity":         types.Schema(
+                        type=types.Type.INTEGER,
+                        description="The quantity to order. Must be calculated as: max(ceil(total_at_risk_order_value / alternative_supplier_unit_price), alternative_supplier_moq) to minimize cost/loss."
+                    ),
                     "unit_price":       types.Schema(type=types.Type.NUMBER),
                     "required_by":      types.Schema(type=types.Type.STRING),
                 },
@@ -249,20 +271,23 @@ TOOL_DEFINITIONS = types.Tool(
             )
         ),
         types.FunctionDeclaration(
-            name="generate_customer_email",
-            description="Draft a professional delay notification email for "
-                        "affected customers.",
+            name="generate_owner_email",
+            description="Draft a professional disruption notification and mitigation alert email for the business owner.",
             parameters=types.Schema(
                 type=types.Type.OBJECT,
                 properties={
-                    "customer_count":  types.Schema(type=types.Type.INTEGER),
-                    "original_eta":    types.Schema(type=types.Type.STRING),
-                    "revised_eta":     types.Schema(type=types.Type.STRING),
-                    "delay_days":      types.Schema(type=types.Type.INTEGER),
-                    "disruption_type": types.Schema(type=types.Type.STRING),
+                    "disruption_summary": types.Schema(type=types.Type.STRING, description="Summary of the disruption event"),
+                    "affected_supplier": types.Schema(type=types.Type.STRING, description="Name of the affected primary supplier"),
+                    "exposure_usd": types.Schema(type=types.Type.NUMBER, description="Total value of at-risk orders in USD"),
+                    "estimated_loss_usd": types.Schema(type=types.Type.NUMBER, description="Estimated revenue/operational loss in USD"),
+                    "delay_days": types.Schema(type=types.Type.INTEGER, description="Estimated delay in days"),
+                    "recommended_alternative": types.Schema(type=types.Type.STRING, description="Name and country of the recommended alternative supplier"),
+                    "po_quantity": types.Schema(type=types.Type.INTEGER, description="Minimum quantity in the drafted purchase order"),
+                    "po_total_value": types.Schema(type=types.Type.NUMBER, description="Total cost of the purchase order in USD"),
                 },
-                required=["customer_count", "original_eta", "revised_eta",
-                          "delay_days", "disruption_type"]
+                required=["disruption_summary", "affected_supplier", "exposure_usd",
+                          "estimated_loss_usd", "delay_days", "recommended_alternative",
+                          "po_quantity", "po_total_value"]
             )
         ),
     ]
@@ -278,5 +303,5 @@ TOOL_HANDLERS = {
     "calculate_exposure":         calculate_exposure,
     "score_suppliers":            score_suppliers,
     "generate_purchase_order":    generate_purchase_order,
-    "generate_customer_email":    generate_customer_email,
+    "generate_owner_email":       generate_owner_email,
 }
