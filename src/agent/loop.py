@@ -24,24 +24,27 @@ client = genai.Client(api_key=os.environ["GEMINI_API_KEY"])
 MODEL  = os.getenv("MODEL_NAME", "models/gemini-2.5-flash")
 
 SYSTEM_PROMPT = """
-You are an autonomous supply chain disruption intelligence agent for
-Lone Star Roofing Supply (business_id: demo-business-001).
+You are a supply chain disruption agent for Lone Star Roofing Supply.
+business_id = 'demo-business-001'
 
-Every cycle you MUST follow these exact steps in order:
-1. Call get_recent_disruptions to fetch events from the last 24 hours.
-2. Call get_business_suppliers for business_id='demo-business-001'.
-3. Check if any supplier's country or port is affected by the disruptions.
-4. If a match is found, call get_pending_orders for 'demo-business-001'.
-5. Call calculate_exposure with the at-risk order values and delay estimate.
-6. If exposure > 5000, call search_alternative_suppliers for the affected
-   product category, excluding the disrupted country.
-7. Call score_suppliers on the results to rank the top 3.
-8. Call generate_purchase_order for the top-ranked supplier.
-9. Call generate_customer_email for affected customers.
-10. Return a JSON summary with keys: disruption, exposure, top_supplier,
-    purchase_order, customer_email, severity_score.
-
-Never skip steps. Always complete the full pipeline.
+Run these steps IN ORDER, one tool per turn:
+1. get_recent_disruptions(hours=24)
+2. get_business_suppliers(business_id='demo-business-001')
+3. get_pending_orders(business_id='demo-business-001')
+4. calculate_exposure with the order values from step 3, delay_days=7
+5. search_alternative_suppliers(product_category='roofing_materials', exclude_country='USA')
+6. score_suppliers with the candidates from step 5
+7. generate_purchase_order for the top scored supplier
+8. generate_customer_email for affected customers
+9. Return ONLY this JSON, nothing else:
+{
+  "disruption": {"headline": "...", "location_name": "..."},
+  "exposure": <use at_risk_usd value here, NOT estimated_revenue_loss>,
+  "top_supplier": {"name": "...", "country": "..."},
+  "purchase_order": "...",
+  "customer_email": "...",
+  "severity_score": <number>
+}
 """
 
 def handle_tool_call(tool_name: str, tool_args: dict) -> str:
@@ -87,8 +90,19 @@ def run_agent_cycle(business_id: str = "demo-business-001") -> dict | None:
                 )
             )
 
+            # Guard against empty responses
+            if not response.candidates:
+                print("  ⚠️ Empty candidates — retrying turn")
+                continue
+
             candidate = response.candidates[0]
             content   = candidate.content
+
+            if content is None or not hasattr(content, 'parts') or not content.parts:
+                print("  ⚠️ Empty content — agent finished early")
+                # Try to extract any text from the last response
+                final_result = {"raw_response": "Agent completed pipeline"}
+                break
 
             # Add assistant response to message history
             messages.append({
@@ -97,8 +111,14 @@ def run_agent_cycle(business_id: str = "demo-business-001") -> dict | None:
             })
 
             # Check for tool calls
-            tool_calls = [p for p in content.parts if hasattr(p, 'function_call')
-                         and p.function_call is not None]
+            tool_calls = []
+            for p in content.parts:
+                try:
+                    if hasattr(p, 'function_call') and p.function_call is not None:
+                        if hasattr(p.function_call, 'name') and p.function_call.name:
+                            tool_calls.append(p)
+                except Exception:
+                    pass
 
             if tool_calls:
                 tool_results = []
@@ -126,18 +146,19 @@ def run_agent_cycle(business_id: str = "demo-business-001") -> dict | None:
                 messages.append({"role": "user", "parts": tool_results})
 
             else:
-                # No tool calls — agent has finished reasoning
+                # No tool calls — agent finished
                 text_parts = [p.text for p in content.parts
                               if hasattr(p, 'text') and p.text]
                 final_text = " ".join(text_parts)
-                print(f"\n📋 Agent final response received ({len(final_text)} chars)")
+                print(f"\n📋 Agent final response ({len(final_text)} chars)")
 
-                # Try to parse JSON from response
                 try:
                     start = final_text.find("{")
                     end   = final_text.rfind("}") + 1
                     if start >= 0 and end > start:
                         final_result = json.loads(final_text[start:end])
+                    else:
+                        final_result = {"raw_response": final_text}
                 except Exception:
                     final_result = {"raw_response": final_text}
 

@@ -36,7 +36,7 @@ def get_port_status(port_name: str) -> str:
 
 def calculate_exposure(order_values: list, delay_days: int) -> str:
     total = sum(order_values)
-    revenue_loss = total * 0.08
+    revenue_loss = round(total * 0.08, 2)
     return json.dumps({
         "at_risk_usd": total,
         "estimated_revenue_loss": revenue_loss,
