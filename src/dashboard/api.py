@@ -1,11 +1,13 @@
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
+from typing import Optional
 import sys, os
 sys.path.insert(0, os.path.dirname(os.path.dirname(
     os.path.dirname(os.path.abspath(__file__)))))
 
 from src.agent.loop import run_agent_cycle
+from src.agent.tools import generate_purchase_order
 from src.ingestion.bq_client import run_query
 
 app = FastAPI(title="Supply Chain Intelligence Agent API")
@@ -82,6 +84,36 @@ def get_suppliers():
         return {"suppliers": rows}
     except Exception as e:
         return {"suppliers": [], "error": str(e)}
+
+# ── Manual PO Generation (user-selected supplier override) ────────────────────
+
+class GeneratePORequest(BaseModel):
+    supplier_name: str
+    supplier_country: str
+    product: str
+    quantity: int
+    unit_price: float
+    required_by: str
+
+@app.post("/api/generate-po")
+def generate_po(req: GeneratePORequest):
+    """
+    Generate a Purchase Order for a specific supplier.
+    Called when the user selects an alternative supplier other than the AI's top pick.
+    """
+    try:
+        result = generate_purchase_order(
+            supplier_name=req.supplier_name,
+            supplier_country=req.supplier_country,
+            product=req.product,
+            quantity=req.quantity,
+            unit_price=req.unit_price,
+            required_by=req.required_by,
+        )
+        import json
+        return {"success": True, **json.loads(result)}
+    except Exception as e:
+        return {"success": False, "error": str(e)}
 
 if __name__ == "__main__":
     import uvicorn

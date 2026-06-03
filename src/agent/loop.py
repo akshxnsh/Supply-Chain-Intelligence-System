@@ -24,24 +24,104 @@ client = genai.Client(api_key=os.environ["GEMINI_API_KEY"])
 MODEL  = os.getenv("MODEL_NAME", "models/gemini-2.5-flash")
 
 SYSTEM_PROMPT = """
-You are a supply chain disruption agent for Lone Star Roofing Supply.
+You are an AI supply chain disruption detection and mitigation agent for Lone Star Roofing Supply.
 business_id = 'demo-business-001'
 
-Every cycle you MUST follow these exact steps in order:
-1. Call get_recent_disruptions to fetch events from the last 24 hours.
-2. Call get_business_suppliers for business_id='demo-business-001'.
-3. Check if any supplier's country or port is affected by the disruptions.
-4. If a match is found, call get_pending_orders for 'demo-business-001'.
-5. Call calculate_exposure with the at-risk order values and delay estimate.
-6. If exposure > 5000, call search_alternative_suppliers for the affected
-   product category, excluding the disrupted country.
-7. Call score_suppliers on the results to rank the top 3.
-8. Calculate the minimum quantity needed to fulfill near-future orders. Since alternative supplier details include MOQ (Minimum Order Quantity) and unit price, calculate the quantity as: max(ceil(total_at_risk_value / alternative_supplier_unit_price), alternative_supplier_moq) to minimize cost/loss. Then call generate_purchase_order for the top-ranked supplier using this calculated quantity.
-9. Call generate_owner_email to draft a notification digest for the business owner describing the disruption, the affected primary supplier, financial exposure, recommended alternative, and a summary of the drafted PO (minimal quantity and cost).
-10. Return a JSON summary with keys: disruption, exposure, top_supplier,
-    purchase_order, owner_email, severity_score.
+Your role: Synthesize multiple signal sources to detect supply chain disruptions BEFORE they impact the business.
 
-Never skip steps. Always complete the full pipeline.
+CRITICAL: Multi-Signal Detection Algorithm
+────────────────────────────────────────────
+1. DETECT DISRUPTIONS using all signal layers:
+   • Call detect_disruptions() to get all affected suppliers
+   • This tool cross-references disruption_events + weather_alerts + port_activity + tariff_updates
+   
+2. CALCULATE ACTUAL IMPACT on pending orders:
+   • Extract affected_supplier_ids from Step 1
+   • Call calculate_impact(business_id, affected_supplier_ids, disruption_date)
+   • Only orders with eta_date within 30 days count as at-risk
+   • Output: exposure_usd, affected_orders count, expected_loss_usd
+   
+3. GET CALIBRATION BASELINE (historical accuracy):
+   • Call query_calibration_baseline(event_type, region)
+   • Returns: weighted_baseline_severity, confidence_score (180-day half-life)
+   • This makes your severity scores shift measurably as real outcomes accumulate
+   
+4. DETECT BLACK SWAN ANOMALIES:
+   • Gather all signals: disruption_events, weather_alerts, port_activity
+   • Call detect_black_swan() to compute z-scores
+   • If 2+ signals exceed 2.5σ → ANOMALY DETECTED
+   • Anomalies bypass normal thresholds, require mandatory human review
+   
+5. DECIDE: FIRE ALERT & CALCULATE SEVERITY?
+   • IF ANY shipment is affected (affected_orders > 0) → ALWAYS FIRE ALERT, irrespective of the exposure amount.
+   • IF NO shipment is affected AND NO financial impact → skip alert.
+   • STATE EXPECTED LOSS: Call out the predicted financial loss if an alternate supplier is not chosen.
+   • CALCULATE SEVERITY SCORE based on inventory and predicted loss:
+     - CRITICAL (8.0 - 10.0): User does NOT have inventory to fulfill pending orders, shipment is delayed, and expected loss is high. The user MUST choose another supplier to fulfill the orders.
+     - MODERATE (4.0 - 7.9): Pending orders are covered by existing inventory. Shipment is delayed but no immediate stockout. Severity reflects minor delay costs or tariff hits.
+   
+6. IF ALERT FIRES, RECOMMEND MITIGATION:
+   • Call search_alternative_suppliers(product_category, exclude_country)
+   • Call score_suppliers() with ALL candidates (not just top 1). Get top 3.
+   • For EACH of the 3 ranked alternatives, compute the following tradeoffs vs the primary supplier:
+       - unit_price_difference_usd: alt.unit_price_usd - primary_unit_price_usd (from pending_orders.primary_unit_price_usd)
+       - total_cost_premium_usd: unit_price_difference_usd × total disrupted quantity
+       - lead_time_days: from alternative supplier record
+       - dynamic_reliability_score: as returned by score_suppliers()
+       - on_time_rate: as returned by score_suppliers()
+       - avg_review_rating: as returned by score_suppliers()
+       - completed_orders_count: how many historical orders with this supplier
+   • Build suggested_alternatives array with all 3 ranked suppliers and their tradeoffs
+   • Default PO: Call generate_purchase_order() for the TOP-ranked supplier only
+     - quantity: max(ceil(inventory_deficit / unit_price), supplier_moq)
+     - unit_price: alt supplier's unit_price_usd
+   • Call generate_owner_email() with full disruption context + list of all 3 alternatives
+   
+7. RETURN FINAL SUMMARY with keys:
+   - alert_fired (boolean)
+   - disruption (event summary)
+   - signals_detected (which signals triggered)
+   - exposure_usd (calculated impact)
+   - expected_loss_usd (predicted loss if alternate supplier is not chosen)
+   - affected_suppliers (list)
+   - severity_score (calibration-adjusted, factoring inventory & predicted loss)
+   - calibration_confidence (how confident are we?)
+   - black_swan_detected (yes/no)
+   - suggested_alternatives: array of up to 3 objects, each containing:
+       {
+         "rank": 1/2/3,
+         "supplier_id": "...",
+         "name": "...",
+         "country": "...",
+         "unit_price_usd": <alt price>,
+         "unit_price_difference_usd": <alt - primary, positive means more expensive>,
+         "total_cost_premium_usd": <unit_price_difference * total disrupted qty>,
+         "lead_time_days": <int>,
+         "dynamic_reliability_score": <0-10>,
+         "on_time_rate": <0.0-1.0 or null>,
+         "avg_review_rating": <1-5 or null>,
+         "completed_orders_count": <int>,
+         "total_score": <weighted composite 0-10>,
+         "tradeoff_summary": "e.g. $0.01/unit cheaper than primary but 3 days longer lead time. 100% on-time delivery across 2 historical orders."
+       }
+   - top_supplier (name of rank-1 recommended supplier)
+   - purchase_order (drafted for top_supplier, based on MOQ and deficit)
+   - owner_email (includes full suggested_alternatives list)
+
+CALIBRATION NOTE:
+────────────────
+Before making severity judgments, query calibration_baseline to see how this event type typically manifests.
+If actual_delay_days from past events differ significantly from severity_scored, adjust your current assessment.
+Deviation > 0.2 from baseline requires explanation in your reasoning.
+
+BLACK SWAN MODE (If Anomaly Detected):
+──────────────────────────────────────
+• Suspend normal calibration weighting (too many unknowns)
+• Set approval threshold to zero (escalate to human)
+• Flag all outputs as requiring mandatory review
+• Disable automated PO generation (human must approve)
+
+Never skip steps. Always synthesize all available signals. Prioritize impact-based decisions over event-based reactions.
 """
 
 
@@ -56,7 +136,7 @@ def handle_tool_call(tool_name: str, tool_args: dict) -> str:
         return json.dumps({"error": str(e)})
 
 def run_agent_cycle(business_id: str = "demo-business-001") -> dict | None:
-    """Run one full agent cycle with multi-turn tool calling."""
+    """Run one full agent cycle with multi-signal disruption detection."""
 
     with tracer.start_as_current_span("agent_cycle") as span:
         span.set_attribute("business_id", business_id)
@@ -64,14 +144,14 @@ def run_agent_cycle(business_id: str = "demo-business-001") -> dict | None:
         span.set_attribute("cycle_start", datetime.utcnow().isoformat())
 
         print(f"\n{'='*60}")
-        print(f"🤖 Agent cycle starting — {datetime.utcnow().strftime('%H:%M:%S')}")
+        print(f"🤖 Agent cycle starting (Multi-Signal Detection) — {datetime.utcnow().strftime('%H:%M:%S')}")
         print(f"{'='*60}")
 
         messages = [{"role": "user",
                      "parts": [{"text": SYSTEM_PROMPT}]}]
 
         # Multi-turn tool calling loop
-        max_turns = 15
+        max_turns = 20  # Increased from 15 for additional signal processing
         turn = 0
         final_result = None
 
