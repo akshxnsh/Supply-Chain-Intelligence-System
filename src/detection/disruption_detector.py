@@ -1,5 +1,6 @@
 from datetime import datetime, timedelta
 import json
+from typing import Dict, Any
 from src.ingestion.bq_client import (
     query_recent_events,
     query_business_suppliers,
@@ -31,7 +32,8 @@ def detect_disruptions(business_id: str = "demo-business-001") -> str:
     disruptions = query_recent_events(hours=24)  # News + events
     business_supp = query_business_suppliers(business_id=business_id)
     weather_alerts = query_recent_weather_alerts(hours=48)  # Weather warnings
-    port_data = query_port_status()  # Port congestion + strikes
+    # Get all port activity (no filter) – we will check per port later
+    port_data = query_port_status('')
     tariffs = query_tariff_updates(days_back=30)  # New tariffs
     
     # ── Create lookup maps for fast matching ──────────────────────────────────
@@ -40,14 +42,12 @@ def detect_disruptions(business_id: str = "demo-business-001") -> str:
     affected_by_port = {}      # country/port → list of port signals
     affected_by_tariff = {}    # (country, product) → tariff info
     
-    # Parse disruption events by country
+    # Parse disruption events by country (keep for macro‑level news)
     for d in disruptions:
         location_name = d.get("location_name", "").lower()
         country_hint = location_name.split(",")[-1].strip().lower() if location_name else ""
         if country_hint:
-            if country_hint not in affected_by_location:
-                affected_by_location[country_hint] = []
-            affected_by_location[country_hint].append({
+            affected_by_location.setdefault(country_hint, []).append({
                 "type": "disruption_event",
                 "headline": d.get("headline", "Unknown"),
                 "severity": d.get("severity_raw", 5.0)
@@ -96,63 +96,130 @@ def detect_disruptions(business_id: str = "demo-business-001") -> str:
     # ── Cross-reference all signals against business suppliers ────────────────
     affected_suppliers = []
     
-    for supp in business_supp:
-        supp_id = supp.get("id")
-        supp_name = supp.get("supplier_name")
+    # Load active shipments for location‑based checks
+    from src.prediction.utils import (
+        fetch_shipment_schedule,
+        predict_shipment_location,
+        match_news_to_shipment,
+        is_port_affected,
+    )
+    shipments = fetch_shipment_schedule(business_id)
+
+    # Build a map of supplier_id -> supplier info for quick lookup
+    supplier_map = {s["id"]: s for s in business_supp}
+
+    # Prepare a dict to accumulate signals per supplier
+    supplier_signals: Dict[str, Dict[str, Any]] = {}
+
+    now = datetime.utcnow()
+
+    # ---------------------------------------------------------------------
+    # 1. Process each active shipment for weather/port/news signals
+    # ---------------------------------------------------------------------
+    for shipment in shipments:
+        supp_id = shipment.get("supplier_id")
+        supp = supplier_map.get(supp_id)
+        if not supp:
+            continue
         supp_country = supp.get("country", "").lower()
         supp_product = supp.get("product_category", "").lower()
-        
-        signals_hit = []
-        signal_details = []
-        cost_impact_usd = 0
-        
-        # Check 1: Location-based disruption (news, geopolitical)
-        if supp_country in affected_by_location:
-            for sig in affected_by_location[supp_country]:
-                signals_hit.append("disruption_event")
-                signal_details.append(f"{sig['headline']} (severity: {sig['severity']})")
-        
-        # Check 2: Weather alert in supplier region
-        if supp_country in affected_by_weather:
-            for sig in affected_by_weather[supp_country]:
-                signals_hit.append("weather_alert")
-                signal_details.append(f"{sig['alert_type']} alert (severity: {sig['severity']})")
-        
-        # Check 3: Port where supplier ships from
-        for port_name, port_sigs in affected_by_port.items():
-            for sig in port_sigs:
-                if sig["strike_flag"] or sig["congestion_score"] > 5.0:
-                    signals_hit.append("port_activity")
-                    port_signal = "Strike" if sig["strike_flag"] else f"Congestion {sig['congestion_score']}"
-                    signal_details.append(f"Port {port_name}: {port_signal} ({sig['delay_hours']}hrs delay)")
-        
-        # Check 4: Tariff increases affecting supplier costs
-        tariff_key = (supp_country, supp_product)
-        if tariff_key in affected_by_tariff:
-            tariff_info = affected_by_tariff[tariff_key]
-            signals_hit.append("tariff_update")
-            tariff_rate = tariff_info["tariff_rate"]
-            
-            # Calculate cost impact on pending orders from this supplier
-            pending = query_pending_orders_by_supplier(business_id, supp_id)
-            for order in pending:
-                order_value = order.get("order_value_usd", 0)
-                cost_increase = order_value * (tariff_rate / 100)
-                cost_impact_usd += cost_increase
-            
-            signal_details.append(f"Tariff +{tariff_rate}% effective {tariff_info['effective_date']} (est. +${cost_impact_usd:.2f} cost)")
-        
-        # Only add supplier if at least one signal triggered
-        if signals_hit:
-            affected_suppliers.append({
+        # Initialise entry if not present
+        if supp_id not in supplier_signals:
+            supplier_signals[supp_id] = {
                 "supplier_id": supp_id,
-                "supplier_name": supp_name,
+                "supplier_name": supp.get("supplier_name"),
                 "country": supp_country,
                 "product_category": supp_product,
-                "signals": list(set(signals_hit)),  # Unique signal types
-                "signal_details": signal_details,
-                "tariff_cost_impact_usd": round(cost_impact_usd, 2),
-                "total_signals_count": len(signals_hit)
+                "signals": set(),
+                "signal_details": [],
+                "tariff_cost_impact_usd": 0.0,
+            }
+        entry = supplier_signals[supp_id]
+
+        # Predict current port
+        current_port = predict_shipment_location(shipment, now)
+
+        # Weather check for the predicted port
+        if any(is_port_affected(current_port, [w], [] ) for w in weather_alerts):
+            entry["signals"].add("weather_alert")
+            entry["signal_details"].append(f"Weather alert affecting port {current_port}")
+
+        # Port activity check (use full port_data list)
+        if any(is_port_affected(current_port, [], [p]) for p in port_data):
+            entry["signals"].add("port_activity")
+            entry["signal_details"].append(f"Port activity affecting {current_port}")
+
+        # News check – only flag when headline mentions the current port and the port is affected
+        for news_item in disruptions:
+            if match_news_to_shipment(news_item, shipment, now, weather_alerts, port_data):
+                entry["signals"].add("news_port")
+                entry["signal_details"].append(f"News: {news_item.get('headline', '')}")
+
+    # ---------------------------------------------------------------------
+    # 2. Macro‑level news (country‑based) – keep existing behaviour
+    # ---------------------------------------------------------------------
+    for supp in business_supp:
+        supp_id = supp.get("id")
+        supp_country = supp.get("country", "").lower()
+        if supp_country in affected_by_location:
+            entry = supplier_signals.setdefault(supp_id, {
+                "supplier_id": supp_id,
+                "supplier_name": supp.get("supplier_name"),
+                "country": supp_country,
+                "product_category": supp.get("product_category", "").lower(),
+                "signals": set(),
+                "signal_details": [],
+                "tariff_cost_impact_usd": 0.0,
+            })
+            entry["signals"].add("disruption_event")
+            for sig in affected_by_location[supp_country]:
+                entry["signal_details"].append(f"{sig['headline']} (severity: {sig['severity']})")
+
+    # ---------------------------------------------------------------------
+    # 3. Tariff impact (unchanged)
+    # ---------------------------------------------------------------------
+    for supp in business_supp:
+        supp_id = supp.get("id")
+        supp_country = supp.get("country", "").lower()
+        supp_product = supp.get("product_category", "").lower()
+        tariff_key = (supp_country, supp_product)
+        if tariff_key in affected_by_tariff:
+            entry = supplier_signals.setdefault(supp_id, {
+                "supplier_id": supp_id,
+                "supplier_name": supp.get("supplier_name"),
+                "country": supp_country,
+                "product_category": supp_product,
+                "signals": set(),
+                "signal_details": [],
+                "tariff_cost_impact_usd": 0.0,
+            })
+            tariff_info = affected_by_tariff[tariff_key]
+            entry["signals"].add("tariff_update")
+            tariff_rate = tariff_info["tariff_rate"]
+            pending = query_pending_orders_by_supplier(business_id, supp_id)
+            cost_impact = 0.0
+            for order in pending:
+                order_value = order.get("order_value_usd", 0)
+                cost_impact += order_value * (tariff_rate / 100)
+            entry["tariff_cost_impact_usd"] = round(cost_impact, 2)
+            entry["signal_details"].append(
+                f"Tariff +{tariff_rate}% effective {tariff_info['effective_date']} (est. +${cost_impact:.2f} cost)"
+            )
+
+    # ---------------------------------------------------------------------
+    # Build final list
+    # ---------------------------------------------------------------------
+    for entry in supplier_signals.values():
+        if entry["signals"]:
+            affected_suppliers.append({
+                "supplier_id": entry["supplier_id"],
+                "supplier_name": entry["supplier_name"],
+                "country": entry["country"],
+                "product_category": entry["product_category"],
+                "signals": list(entry["signals"]),
+                "signal_details": entry["signal_details"],
+                "tariff_cost_impact_usd": entry["tariff_cost_impact_usd"],
+                "total_signals_count": len(entry["signals"]),
             })
     
     return json.dumps({
