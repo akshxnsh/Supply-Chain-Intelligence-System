@@ -63,8 +63,16 @@ Aggregates the financial impact of all detected signals for each supplier, provi
 ### 3. Supplier Scorer (`src/suppliers/scorer.py`)
 Ranks suppliers based on reliability, historical performance, cost, and current exposure. The top‑ranked alternative is used for PO generation.
 
-### 4. Agent Loop (`src/agent/loop.py`)
-Runs the detection pipeline on a configurable schedule, creates alerts, drafts an email summary, and triggers PO creation when appropriate.
+### 4. Google ADK Agent System (`src/agent`)
+The application is a native Google ADK multi-agent system:
+
+* `SupplyChainIntelligenceAgent` is the root coordinator.
+* `DisruptionDetectionAgent` analyzes disruption, weather, port, and tariff signals.
+* `SupplierRiskAgent` calculates exposure and ranks alternatives.
+* `ProcurementAgent` drafts purchase orders and owner communications.
+* `CalibrationAgent` applies historical calibration.
+* ADK `Runner`, sessions, task-mode delegation, function tools, callbacks, and
+  MCP toolsets replace the former custom Gemini loop.
 
 ### 5. Dashboard (`src/dashboard/frontend`)
 A minimal React/Vite UI that displays current alerts, affected suppliers, and suggested actions.
@@ -77,7 +85,7 @@ A minimal React/Vite UI that displays current alerts, affected suppliers, and su
 * Python 3.10+
 * Node.js (for the dashboard UI)
 * A Google Cloud project with BigQuery access
-* API keys for **Gemini** (Google GenAI) and **Arize Phoenix** (observability)
+* API keys for **Gemini** and **Arize Phoenix** (observability)
 
 ### Steps
 1. **Clone the repository**
@@ -105,12 +113,80 @@ A minimal React/Vite UI that displays current alerts, affected suppliers, and su
    ```bash
    npm run dev   # starts Vite dev server at http://localhost:5173
    ```
-6. **Start the agent**
+6. **Start the ADK agent**
    ```bash
-   python src/agent/main.py
+   python run.py once
    ```
 
-The agent will validate the required environment variables, connect to Arize Phoenix for tracing, and then begin processing.
+The application maps the existing `GEMINI_API_KEY` to ADK's
+`GOOGLE_API_KEY` automatically.
+
+## ADK Runtime Configuration
+
+The default session service is ADK's `InMemorySessionService`, which preserves
+the original process-local behavior. To use persistent ADK sessions, configure:
+
+```bash
+ADK_SESSION_DB_URL=sqlite+aiosqlite:///./supply_chain_sessions.db
+```
+
+The root agent is available in `src/agent/agent.py` for ADK discovery:
+
+```bash
+adk web
+```
+
+Historical recommendation calibration remains in BigQuery because it is
+durable business/evaluation data rather than conversational memory. No custom
+conversation history is maintained by application code.
+
+## Fivetran MCP
+
+Fivetran is exposed to the root agent as a native ADK `McpToolset`. Configure
+either Streamable HTTP:
+
+```bash
+FIVETRAN_MCP_URL=https://your-fivetran-mcp-endpoint
+FIVETRAN_MCP_TOKEN=your-token
+```
+
+or a stdio server:
+
+```bash
+FIVETRAN_MCP_COMMAND="your-fivetran-mcp-command --flag"
+```
+
+The toolset admits only:
+
+* `check_connector_status`
+* `get_last_sync_time`
+* `list_connectors`
+* `trigger_sync`
+* `monitor_sync`
+
+When Fivetran MCP is not configured, the rest of the ADK application runs
+normally without placeholder sync behavior.
+
+## Phoenix Tracing
+
+Phoenix registration is retained through `phoenix.otel`. The
+`openinference-instrumentation-google-adk` instrumentor captures ADK agent,
+model, and tool execution, while explicit cycle spans retain the existing
+business and session attributes.
+
+Supported variables:
+
+```bash
+PHOENIX_API_KEY=...
+PHOENIX_COLLECTOR_ENDPOINT=https://app.phoenix.arize.com/s/your-space
+PHOENIX_PROJECT_NAME=supply-chain-agent
+```
+
+## Tests
+
+```bash
+python -m pytest -q
+```
 
 ---
 

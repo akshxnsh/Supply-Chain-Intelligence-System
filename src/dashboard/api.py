@@ -6,7 +6,7 @@ import sys, os, json
 sys.path.insert(0, os.path.dirname(os.path.dirname(
     os.path.dirname(os.path.abspath(__file__)))))
 
-from src.agent.loop import run_agent_cycle
+from src.agent.runtime import run_agent_cycle_async
 from src.agent.tools import generate_purchase_order
 from src.agent.business_registry import list_businesses, get_business
 from src.ingestion.bq_client import run_query_safe
@@ -80,9 +80,9 @@ async def simulate_disruption(business_id: str = Query(default=DEFAULT_BIZ)):
         state.is_running = True
         state.live_log = []
         try:
-            import asyncio, functools
-            result = await asyncio.to_thread(
-                functools.partial(run_agent_cycle, business_id=business_id, log_callback=lambda msg: state.live_log.append(msg))
+            result = await run_agent_cycle_async(
+                business_id=business_id,
+                log_callback=lambda msg: state.live_log.append(msg),
             )
             if not result:
                 return {
@@ -94,11 +94,14 @@ async def simulate_disruption(business_id: str = Query(default=DEFAULT_BIZ)):
                 "success": True,
                 "business_id": business_id,
                 "disruption": result.get("disruption", {}),
-                "exposure": result.get("exposure", 0),
+                "exposure": result.get("exposure_usd", result.get("exposure", 0)),
                 "severity_score": result.get("severity_score", 0),
                 "top_supplier": result.get("top_supplier", {}),
                 "purchase_order": result.get("purchase_order", ""),
-                "customer_email": result.get("customer_email", ""),
+                "customer_email": result.get(
+                    "owner_email",
+                    result.get("customer_email", ""),
+                ),
                 "raw": result,
             }
         except Exception as e:

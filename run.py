@@ -1,5 +1,6 @@
 import sys
-from src.agent.loop import run_loop, run_agent_cycle
+
+from src.agent.runtime import run_agent_cycle, run_loop
 
 if __name__ == "__main__":
     if len(sys.argv) > 1 and sys.argv[1] == "once":
