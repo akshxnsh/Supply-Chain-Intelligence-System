@@ -5,7 +5,7 @@
 }
 
 body {
-  background: #0a0f1e;
+  background: #000;
   color: #e2e8f0;
   font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
   min-height: 100vh;
@@ -24,8 +24,52 @@ body {
   --text-primary: #f1f5f9;
   --text-secondary: #94a3b8;
   --text-muted: #475569;
+
+  --sidebar-width: 240px;
+  --space-2: 8px;
+  --space-3: 12px;
+  --space-4: 16px;
+  --space-5: 20px;
+  --space-6: 24px;
+  --space-8: 32px;
+  --space-10: 40px;
+  --space-12: 48px;
+  --r-sm: 6px;
+  --r-md: 10px;
+  --r-lg: 14px;
+  --r-xl: 18px;
 }
 
 ::-webkit-scrollbar { width: 6px; }
 ::-webkit-scrollbar-track { background: var(--bg-primary); }
 ::-webkit-scrollbar-thumb { background: var(--border); border-radius: 3px; }
+
+@keyframes shimmer {
+  0% { background-position: -600px 0; }
+  100% { background-position: 600px 0; }
+}
+
+@keyframes fade-in {
+  from { opacity: 0; transform: translateY(8px); }
+  to { opacity: 1; transform: none; }
+}
+
+@keyframes pulse-border {
+  0%, 100% { border-color: #f97316; }
+  50% { border-color: #fbbf24; }
+}
+
+.skeleton {
+  background: linear-gradient(90deg, var(--bg-card) 0px, var(--bg-card-hover) 200px, var(--bg-card) 400px);
+  background-size: 600px;
+  animation: shimmer 1.4s infinite linear;
+  border-radius: 6px;
+}
+
+.fade-in {
+  animation: fade-in 0.25s ease forwards;
+}
+
+.pulse-border {
+  animation: pulse-border 1.5s ease-in-out infinite;
+}

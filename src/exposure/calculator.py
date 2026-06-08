@@ -5,15 +5,18 @@ from src.ingestion.bq_client import (
     query_inventory,
 )
 
-def calculate_impact(business_id: str, affected_supplier_ids: list, disruption_date: str) -> str:
+def calculate_impact(business_id: str, affected_supplier_ids: list, disruption_date: str,
+                     tariff_cost_impact_usd: float = 0.0) -> str:
     """
     Calculate actual financial impact on pending orders and predicted loss if no action taken.
     Returns: exposure_usd, affected_orders_count, inventory_coverage_status, expected_loss_usd
+    tariff_cost_impact_usd: additional cost from tariff changes (pass from detect_disruptions output).
     """
     if not affected_supplier_ids:
         return json.dumps({
-            "exposure_usd": 0, "affected_orders": 0, "inventory_covers": True, 
-            "severity_adjustment": 1.0, "expected_loss_usd": 0
+            "exposure_usd": 0, "affected_orders": 0, "inventory_covers": True,
+            "severity_adjustment": 1.0, "expected_loss_usd": 0,
+            "tariff_cost_included_usd": 0,
         })
     
     # ── Map suppliers to product_category ─────────────────────────────────────
@@ -56,12 +59,14 @@ def calculate_impact(business_id: str, affected_supplier_ids: list, disruption_d
             expected_loss_usd += (exp * 0.15)
     
     severity_adjustment = 0.5 if inventory_covers else 1.5
-    
+    expected_loss_usd += tariff_cost_impact_usd
+
     return json.dumps({
         "exposure_usd": round(total_exposure, 2),
         "affected_orders": len(affected_orders_list),
         "inventory_covers": inventory_covers,
         "severity_adjustment": severity_adjustment,
         "expected_loss_usd": round(expected_loss_usd, 2),
-        "predictive_loss_reasoning": "Inventory covers orders." if inventory_covers else f"Inventory depleted. {"; ".join(shortfall_details)} High risk of lost sales."
+        "tariff_cost_included_usd": round(tariff_cost_impact_usd, 2),
+        "predictive_loss_reasoning": "Inventory covers orders." if inventory_covers else f"Inventory depleted. {'; '.join(shortfall_details)} High risk of lost sales.",
     }, default=str)
