@@ -191,9 +191,6 @@ def create_root_agent() -> LlmAgent:
         tools=root_tools,
         output_schema=SupplyChainAnalysis,
         output_key="final_analysis",
-        generate_content_config={
-            "temperature": 0.1,
-            "response_mime_type": "application/json",
-        },
+        generate_content_config={"temperature": 0.1},
         **_callbacks(),
     )
