@@ -7,7 +7,7 @@ from src.ingestion.bq_client import (
     query_recent_weather_alerts,
     query_port_status,
     query_tariff_updates,
-    query_pending_orders_by_supplier,
+    query_pending_orders,
 )
 
 def detect_disruptions(business_id: str = "demo-business-001") -> str:
@@ -32,9 +32,29 @@ def detect_disruptions(business_id: str = "demo-business-001") -> str:
     disruptions = query_recent_events(hours=24)  # News + events
     business_supp = query_business_suppliers(business_id=business_id)
     weather_alerts = query_recent_weather_alerts(hours=48)  # Weather warnings
-    # Get all port activity (no filter) – we will check per port later
-    port_data = query_port_status('')
     tariffs = query_tariff_updates(days_back=30)  # New tariffs
+
+    # Load active shipments up front: needed both for location-based checks and to
+    # scope the port-status query to only the ports this business actually touches.
+    from src.prediction.utils import (
+        fetch_shipment_schedule,
+        predict_shipment_location,
+        match_news_to_shipment,
+        is_port_affected,
+    )
+    shipments = fetch_shipment_schedule(business_id)
+
+    # Only query port activity for the origin/destination ports on active shipments,
+    # rather than scanning the entire port_activity table.
+    relevant_ports = set()
+    for sh in shipments:
+        for key in ("origin_port", "destination_port"):
+            pn = sh.get(key)
+            if pn and pn != "Domestic":
+                relevant_ports.add(pn)
+    port_data = []
+    for pn in relevant_ports:
+        port_data.extend(query_port_status(pn))
     
     # ── Create lookup maps for fast matching ──────────────────────────────────
     affected_by_location = {}  # country → list of disruption signals
@@ -95,15 +115,6 @@ def detect_disruptions(business_id: str = "demo-business-001") -> str:
     
     # ── Cross-reference all signals against business suppliers ────────────────
     affected_suppliers = []
-    
-    # Load active shipments for location‑based checks
-    from src.prediction.utils import (
-        fetch_shipment_schedule,
-        predict_shipment_location,
-        match_news_to_shipment,
-        is_port_affected,
-    )
-    shipments = fetch_shipment_schedule(business_id)
 
     # Build a map of supplier_id -> supplier info for quick lookup
     supplier_map = {s["id"]: s for s in business_supp}
@@ -176,8 +187,14 @@ def detect_disruptions(business_id: str = "demo-business-001") -> str:
                 entry["signal_details"].append(f"{sig['headline']} (severity: {sig['severity']})")
 
     # ---------------------------------------------------------------------
-    # 3. Tariff impact (unchanged)
+    # 3. Tariff impact
     # ---------------------------------------------------------------------
+    # Fetch all pending orders once and group by supplier to avoid an N+1 query
+    # loop (previously one query per tariff-matched supplier).
+    pending_by_supplier: Dict[str, list] = {}
+    for order in query_pending_orders(business_id):
+        pending_by_supplier.setdefault(order.get("supplier_id"), []).append(order)
+
     for supp in business_supp:
         supp_id = supp.get("id")
         supp_country = supp.get("country", "").lower()
@@ -196,7 +213,7 @@ def detect_disruptions(business_id: str = "demo-business-001") -> str:
             tariff_info = affected_by_tariff[tariff_key]
             entry["signals"].add("tariff_update")
             tariff_rate = tariff_info["tariff_rate"]
-            pending = query_pending_orders_by_supplier(business_id, supp_id)
+            pending = pending_by_supplier.get(supp_id, [])
             cost_impact = 0.0
             for order in pending:
                 order_value = order.get("order_value_usd", 0)

@@ -46,9 +46,10 @@ function SkeletonRow() {
   );
 }
 
-function AlertCard({ alert }) {
+function AlertCard({ alert, onAcknowledge }) {
   const [expanded, setExpanded] = useState(false);
   const [hovered, setHovered] = useState(false);
+  const [localStatus, setLocalStatus] = useState(alert.status);
   const color = getSeverityColor(alert.severity_score);
   const label = getSeverityLabel(alert.severity_score);
 
@@ -57,7 +58,16 @@ function AlertCard({ alert }) {
     resolved: { bg: "rgba(34,197,94,0.15)", text: "#22c55e" },
     acknowledged: { bg: "rgba(59,130,246,0.15)", text: "#3b82f6" },
   };
-  const statusStyle = statusColors[alert.status] || { bg: "rgba(148,163,184,0.15)", text: "#94a3b8" };
+  const statusStyle = statusColors[localStatus] || { bg: "rgba(148,163,184,0.15)", text: "#94a3b8" };
+
+  const handleAcknowledge = async (e) => {
+    e.stopPropagation();
+    try {
+      await fetch(`http://localhost:8000/api/alerts/${alert.id}/acknowledge`, { method: "POST" });
+      setLocalStatus("acknowledged");
+      if (onAcknowledge) onAcknowledge(alert.id);
+    } catch {}
+  };
 
   const severityBg =
     label === "CRITICAL"
@@ -106,7 +116,24 @@ function AlertCard({ alert }) {
               {label}
             </span>
           </div>
-          <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
+          <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+            {localStatus !== "acknowledged" && (
+              <button
+                onClick={handleAcknowledge}
+                style={{
+                  background: "#1e3a5f",
+                  color: "#60a5fa",
+                  border: "1px solid #2563eb44",
+                  borderRadius: 8,
+                  padding: "3px 10px",
+                  fontSize: 11,
+                  fontWeight: 600,
+                  cursor: "pointer",
+                }}
+              >
+                Acknowledge
+              </button>
+            )}
             <span
               style={{
                 background: statusStyle.bg,
@@ -118,7 +145,7 @@ function AlertCard({ alert }) {
                 textTransform: "capitalize",
               }}
             >
-              {alert.status || "unknown"}
+              {localStatus || "unknown"}
             </span>
             <span
               style={{
@@ -141,12 +168,20 @@ function AlertCard({ alert }) {
             {formatExposure(alert.exposure_usd)}
           </span>
           <span style={{ fontSize: 13, color: "var(--text-secondary)" }}>
-            Severity score:{" "}
+            Severity:{" "}
             <span style={{ color: color, fontWeight: 600 }}>
               {Number(alert.severity_score).toFixed(1)}
             </span>{" "}
             / 10
           </span>
+          {alert.calibration_confidence != null && (
+            <span style={{ fontSize: 12, color: "var(--text-muted)" }}>
+              Model confidence:{" "}
+              <span style={{ color: "#a78bfa", fontWeight: 600 }}>
+                {Math.round(alert.calibration_confidence * 100)}%
+              </span>
+            </span>
+          )}
         </div>
 
         {/* Bottom row */}
@@ -201,35 +236,54 @@ function AlertCard({ alert }) {
 export default function AlertsScreen({ businessId }) {
   const [alerts, setAlerts] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [loadingMore, setLoadingMore] = useState(false);
   const [lastRefreshed, setLastRefreshed] = useState(null);
   const [error, setError] = useState(null);
+  const [page, setPage] = useState(0);
+  const [hasMore, setHasMore] = useState(true);
+  const PAGE_SIZE = 10;
 
-  const fetchAlerts = useCallback(async () => {
+  const fetchAlerts = useCallback(async (pageNum = 0, append = false) => {
     try {
       const res = await fetch(
-        `http://localhost:8000/api/alerts?business_id=${businessId}`
+        `http://localhost:8000/api/alerts?business_id=${businessId}&limit=${PAGE_SIZE}&offset=${pageNum * PAGE_SIZE}`
       );
       if (!res.ok) throw new Error(`HTTP ${res.status}`);
       const data = await res.json();
-      setAlerts(data.alerts || []);
+      const newAlerts = data.alerts || [];
+      setAlerts(prev => append ? [...prev, ...newAlerts] : newAlerts);
+      setHasMore(newAlerts.length === PAGE_SIZE);
       setLastRefreshed(new Date());
       setError(null);
     } catch (err) {
       setError(err.message);
     } finally {
       setLoading(false);
+      setLoadingMore(false);
     }
   }, [businessId]);
 
   useEffect(() => {
-    fetchAlerts();
-    const interval = setInterval(fetchAlerts, 30000);
+    setPage(0);
+    setAlerts([]);
+    setHasMore(true);
+    setLoading(true);
+    fetchAlerts(0, false);
+    const interval = setInterval(() => fetchAlerts(0, false), 30000);
     return () => clearInterval(interval);
   }, [fetchAlerts]);
 
   const handleRefresh = () => {
+    setPage(0);
     setLoading(true);
-    fetchAlerts();
+    fetchAlerts(0, false);
+  };
+
+  const handleLoadMore = () => {
+    const nextPage = page + 1;
+    setPage(nextPage);
+    setLoadingMore(true);
+    fetchAlerts(nextPage, true);
   };
 
   const totalExposure = alerts.reduce((sum, a) => sum + (a.exposure_usd || 0), 0);
@@ -396,8 +450,36 @@ export default function AlertsScreen({ businessId }) {
 
                 {/* Alert cards */}
                 {alerts.map((alert) => (
-                  <AlertCard key={alert.id} alert={alert} />
+                  <AlertCard
+                    key={alert.id}
+                    alert={alert}
+                    onAcknowledge={(id) =>
+                      setAlerts(prev => prev.map(a => a.id === id ? { ...a, status: "acknowledged" } : a))
+                    }
+                  />
                 ))}
+
+                {/* Load More */}
+                {hasMore && (
+                  <div style={{ textAlign: "center", marginTop: 16 }}>
+                    <button
+                      onClick={handleLoadMore}
+                      disabled={loadingMore}
+                      style={{
+                        background: "#111827",
+                        color: loadingMore ? "var(--text-muted)" : "#60a5fa",
+                        border: "1px solid #1e2d45",
+                        borderRadius: 8,
+                        padding: "8px 24px",
+                        fontSize: 13,
+                        fontWeight: 500,
+                        cursor: loadingMore ? "default" : "pointer",
+                      }}
+                    >
+                      {loadingMore ? "Loading…" : "Load More"}
+                    </button>
+                  </div>
+                )}
               </>
             )}
           </>

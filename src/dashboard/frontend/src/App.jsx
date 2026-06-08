@@ -4,11 +4,13 @@ import Sidebar from "./components/Sidebar"
 import AlertsScreen from "./screens/AlertsScreen"
 import TraceScreen from "./screens/TraceScreen"
 import SupplierHealthScreen from "./screens/SupplierHealthScreen"
+import OverviewScreen from "./screens/OverviewScreen"
 
 const API = "http://localhost:8000"
 const DEFAULT_BIZ = "demo-business-001"
 
 const SCREEN_TITLES = {
+  overview: "Overview",
   alerts: "Active Alerts",
   trace: "Agent Simulation",
   health: "Supplier Health",
@@ -106,6 +108,7 @@ export default function App() {
         </header>
 
         <main style={{ flex: 1, overflowY: "auto" }}>
+          {screen === "overview" && <OverviewScreen />}
           {screen === "alerts" && <AlertsScreen businessId={businessId} />}
           {screen === "trace"  && (
             <TraceScreen

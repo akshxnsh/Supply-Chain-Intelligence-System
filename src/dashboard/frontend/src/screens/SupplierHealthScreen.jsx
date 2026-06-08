@@ -29,10 +29,15 @@ function formatSpend(val) {
   return `$${val}`;
 }
 
-function healthBadge(spend) {
-  if (spend > 400_000) return { label: "Healthy", color: "#22c55e", bg: "#052e16" };
-  if (spend >= 100_000) return { label: "Monitor", color: "#eab308", bg: "#1c1a05" };
-  return { label: "At Risk", color: "#ef4444", bg: "#1f0505" };
+function healthBadge(supplier) {
+  const { annual_spend_usd: spend, other_suppliers_count, avg_delay_days } = supplier;
+  const isSingleSource = other_suppliers_count === 0;
+  const hasHighDelay   = avg_delay_days != null && avg_delay_days > 7;
+  if (isSingleSource || hasHighDelay)
+    return { label: "At Risk", color: "#ef4444", bg: "#1f0505" };
+  if (spend < 100_000 || (avg_delay_days != null && avg_delay_days > 3))
+    return { label: "Monitor", color: "#eab308", bg: "#1c1a05" };
+  return { label: "Healthy", color: "#22c55e", bg: "#052e16" };
 }
 
 function SkeletonRow() {
@@ -202,7 +207,7 @@ export default function SupplierHealthScreen({ businessId }) {
           )}
 
           {!loading && !error && filtered.map((s, i) => {
-            const badge = healthBadge(s.annual_spend_usd);
+            const badge = healthBadge(s);
             const barPct = Math.max(4, (s.annual_spend_usd / maxSpend) * 100);
             const isHovered = hoveredRow === i;
             return (
@@ -265,7 +270,7 @@ export default function SupplierHealthScreen({ businessId }) {
                 </div>
 
                 {/* Health Badge */}
-                <div>
+                <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
                   <span style={{
                     display: "inline-block",
                     background: badge.bg,
@@ -276,6 +281,18 @@ export default function SupplierHealthScreen({ businessId }) {
                   }}>
                     {badge.label}
                   </span>
+                  {s.other_suppliers_count === 0 && (
+                    <span style={{
+                      display: "inline-block",
+                      background: "#1f0505",
+                      color: "#f97316",
+                      border: "1px solid #f9731644",
+                      borderRadius: 20, padding: "2px 8px",
+                      fontSize: 10, fontWeight: 600,
+                    }}>
+                      ⚠ Single Source
+                    </span>
+                  )}
                 </div>
               </div>
             );

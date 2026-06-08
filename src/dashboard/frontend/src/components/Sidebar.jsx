@@ -1,9 +1,10 @@
 import { useState } from "react"
 
 const NAV = [
-  { id: "alerts", label: "Alerts",         icon: "🔔" },
-  { id: "trace",  label: "Agent Trace",    icon: "⚡" },
-  { id: "health", label: "Supplier Health",icon: "📊" },
+  { id: "overview", label: "Overview",       icon: "🌐" },
+  { id: "alerts",   label: "Alerts",         icon: "🔔" },
+  { id: "trace",    label: "Agent Trace",    icon: "⚡" },
+  { id: "health",   label: "Supplier Health",icon: "📊" },
 ]
 
 function ZapIcon() {

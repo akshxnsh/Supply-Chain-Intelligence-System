@@ -1,7 +1,7 @@
 import json
 from src.ingestion.bq_client import (
-    query_completed_orders_by_supplier,
-    query_supplier_reviews,
+    query_completed_orders_by_suppliers,
+    query_supplier_reviews_by_suppliers,
 )
 
 def score_suppliers(candidates: list, calibration_baseline: float = None) -> str:
@@ -12,12 +12,18 @@ def score_suppliers(candidates: list, calibration_baseline: float = None) -> str
     Formula: lead_time*0.30 + price*0.25 + dynamic_reliability*0.25 + geographic_risk*0.20
     """
     scored = []
+
+    # ── Batch-fetch history + reviews for all candidates up front (avoids N+1) ──
+    supplier_ids = [s.get("id", "") for s in candidates if s.get("id")]
+    completed_map = query_completed_orders_by_suppliers(supplier_ids)
+    reviews_map   = query_supplier_reviews_by_suppliers(supplier_ids)
+
     for s in candidates:
         supplier_id = s.get("id", "")
 
         # ── Dynamic reliability from order history ────────────────────────────
-        completed = query_completed_orders_by_supplier(supplier_id)
-        reviews   = query_supplier_reviews(supplier_id)
+        completed = completed_map.get(supplier_id, [])
+        reviews   = reviews_map.get(supplier_id, [])
 
         if completed:
             on_time_count   = sum(1 for o in completed if (o.get("delay_days") or 0) <= 0)

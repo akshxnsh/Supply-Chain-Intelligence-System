@@ -7,7 +7,7 @@ from phoenix.otel import register
 from openinference.instrumentation.google_genai import GoogleGenAIInstrumentor
 from src.agent.tools import TOOL_DEFINITIONS, TOOL_HANDLERS
 from src.agent.business_registry import get_business
-from src.ingestion.bq_client import save_alert
+from src.ingestion.bq_client import save_alert, check_duplicate_alert
 
 load_dotenv()
 
@@ -84,7 +84,9 @@ CRITICAL: Multi-Signal Detection Algorithm
    
 7. RETURN FINAL SUMMARY with keys:
    - alert_fired (boolean)
-   - disruption (event summary)
+   - disruption (event summary). MUST be an object that includes an "id" field set to
+     the originating disruption_events.id (or the affected supplier_id if no event id
+     exists). This stable id is required for alert deduplication — never omit it.
    - signals_detected (which signals triggered)
    - exposure_usd (calculated impact)
    - expected_loss_usd (predicted loss if alternate supplier is not chosen)
@@ -166,6 +168,8 @@ def run_agent_cycle(business_id: str = "demo-business-001", log_callback=None) -
         turn = 0
         final_result = None
         tool_call_log = []
+        empty_responses = 0
+        MAX_EMPTY_RESPONSES = 3
 
         while turn < max_turns:
             turn += 1
@@ -181,10 +185,18 @@ def run_agent_cycle(business_id: str = "demo-business-001", log_callback=None) -
                 )
             )
 
-            # Guard against empty responses
+            # Guard against empty responses — bail out if they persist so we don't
+            # spin through the remaining turns making no progress.
             if not response.candidates:
-                print("  ⚠️ Empty candidates — retrying turn")
+                empty_responses += 1
+                log(f"  ⚠️ Empty candidates ({empty_responses}/{MAX_EMPTY_RESPONSES})")
+                if empty_responses >= MAX_EMPTY_RESPONSES:
+                    log("  ❌ Too many empty responses — aborting cycle")
+                    final_result = {"error": "Gemini returned empty responses repeatedly (likely quota/safety block)"}
+                    span.set_attribute("success", False)
+                    break
                 continue
+            empty_responses = 0
 
             candidate = response.candidates[0]
             content   = candidate.content
@@ -243,14 +255,21 @@ def run_agent_cycle(business_id: str = "demo-business-001", log_callback=None) -
                 final_text = " ".join(text_parts)
                 log(f"\n📋 Agent final response ({len(final_text)} chars)")
 
-                try:
-                    start = final_text.find("{")
-                    end   = final_text.rfind("}") + 1
-                    if start >= 0 and end > start:
-                        final_result = json.loads(final_text[start:end])
-                    else:
+                # Robustly extract the JSON object: strip markdown code fences,
+                # then match the outermost {...} block. Log on parse failure so a
+                # malformed response is visible rather than silently swallowed.
+                import re
+                cleaned = re.sub(r"^```(?:json)?\s*", "", final_text.strip())
+                cleaned = re.sub(r"\s*```$", "", cleaned)
+                match = re.search(r"\{.*\}", cleaned, re.DOTALL)
+                if match:
+                    try:
+                        final_result = json.loads(match.group(0))
+                    except json.JSONDecodeError as e:
+                        log(f"  ⚠️ Failed to parse agent JSON ({e}); returning raw response")
                         final_result = {"raw_response": final_text}
-                except Exception:
+                else:
+                    log("  ⚠️ No JSON object found in agent response; returning raw response")
                     final_result = {"raw_response": final_text}
 
                 if isinstance(final_result, dict):
@@ -262,6 +281,47 @@ def run_agent_cycle(business_id: str = "demo-business-001", log_callback=None) -
 
         return final_result
 
+def _persist_alert_if_new(result: dict, business_id: str):
+    """Save the alert to BigQuery if alert_fired and not a duplicate within 24h."""
+    if not result.get("alert_fired"):
+        return
+    disruption = result.get("disruption") or {}
+    disruption_id = (
+        disruption.get("id")
+        or disruption.get("disruption_id")
+        or disruption.get("event_id")
+    )
+    # Fall back to a STABLE id derived from the disruption headline (deterministic
+    # across cycles) rather than severity_score, which varies run-to-run and would
+    # defeat deduplication. If we have no stable identifier at all, skip persisting.
+    if not disruption_id:
+        headline = disruption.get("headline") or disruption.get("summary")
+        if headline:
+            import hashlib
+            disruption_id = f"{business_id}-" + hashlib.sha1(headline.encode("utf-8")).hexdigest()[:12]
+        else:
+            print("[ALERT] Skipping persist: no stable disruption_id or headline to dedupe on")
+            return
+    if check_duplicate_alert(business_id, str(disruption_id)):
+        print(f"[DEDUP] Skipping duplicate alert for disruption '{disruption_id}'")
+        return
+    from datetime import datetime, timezone
+    alert = {
+        "id": f"alert-{datetime.now(timezone.utc).strftime('%Y%m%d%H%M%S')}-{business_id}",
+        "business_id": business_id,
+        "disruption_id": str(disruption_id),
+        "severity_score": result.get("severity_score"),
+        "exposure_usd": result.get("exposure_usd") or result.get("exposure"),
+        "actions_json": json.dumps(result.get("suggested_alternatives", [])),
+        "status": "active",
+        "created_at": datetime.now(timezone.utc).isoformat(),
+    }
+    try:
+        save_alert(alert)
+        print(f"[ALERT] Saved alert {alert['id']} (severity={alert['severity_score']})")
+    except Exception as e:
+        print(f"[ALERT] Warning: could not save alert — {e}")
+
 def run_loop():
     """Continuous 15-minute agent loop."""
     print("🚀 Supply Chain Agent starting...")
@@ -270,6 +330,7 @@ def run_loop():
             result = run_agent_cycle()
             if result:
                 print(f"\n✅ Cycle complete. Result: {json.dumps(result, indent=2)}")
+                _persist_alert_if_new(result, "demo-business-001")
         except Exception as e:
             print(f"❌ Cycle error: {e}")
         print(f"\n⏳ Next cycle in 15 minutes...")

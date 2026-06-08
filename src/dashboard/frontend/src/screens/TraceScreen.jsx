@@ -1,5 +1,4 @@
 import { useState, useEffect, useRef } from "react"
-import axios from "axios"
 
 const API = "http://localhost:8000"
 
@@ -12,31 +11,22 @@ function logLineColor(line) {
   return "#525252"
 }
 
-function Terminal({ loading, onSimulate }) {
+function Terminal({ businessId, loading, onSimulate }) {
   const [lines, setLines] = useState([])
-  const seenCount = useRef(0)
   const bottomRef = useRef(null)
-  const pollRef = useRef(null)
 
-  // Start/stop polling based on loading state
+  // Stream logs via SSE instead of polling
   useEffect(() => {
-    if (loading) {
-      seenCount.current = 0
-      setLines([])
-      pollRef.current = setInterval(async () => {
-        try {
-          const res = await axios.get(`${API}/api/live-log`)
-          const all = res.data.logs || []
-          if (all.length > seenCount.current) {
-            setLines([...all])
-            seenCount.current = all.length
-          }
-        } catch {}
-      }, 700)
-    } else {
-      clearInterval(pollRef.current)
+    if (!loading) return
+    setLines([])
+    const es = new EventSource(`${API}/api/live-log/stream?business_id=${encodeURIComponent(businessId)}`)
+    es.onmessage = (e) => {
+      const data = JSON.parse(e.data)
+      if (data.log) setLines(prev => [...prev, data.log])
+      if (data.done) es.close()
     }
-    return () => clearInterval(pollRef.current)
+    es.onerror = () => es.close()
+    return () => es.close()
   }, [loading])
 
   // Auto-scroll to bottom
@@ -229,7 +219,7 @@ export default function TraceScreen({ businessId, loading, onSimulate, result, e
         </div>
       )}
 
-      <Terminal loading={loading} onSimulate={onSimulate} />
+      <Terminal businessId={businessId} loading={loading} onSimulate={onSimulate} />
       <TraceTimeline result={result} />
     </div>
   )
