@@ -1,14 +1,19 @@
-from fastapi import FastAPI
+from fastapi import FastAPI, HTTPException, Query
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
-from typing import Optional
-import sys, os
+import sys, os, json
 sys.path.insert(0, os.path.dirname(os.path.dirname(
     os.path.dirname(os.path.abspath(__file__)))))
 
 from src.agent.loop import run_agent_cycle
 from src.agent.tools import generate_purchase_order
+from src.agent.business_registry import list_businesses, get_business
 from src.ingestion.bq_client import run_query
+import asyncio as _asyncio
+
+_live_log: list = []
+_last_result: dict = {}
+_is_running: bool = False
 
 app = FastAPI(title="Supply Chain Intelligence Agent API")
 
@@ -22,27 +27,44 @@ app.add_middleware(
 
 # ── Routes ────────────────────────────────────────────────────────────────────
 
+DEFAULT_BIZ = "demo-business-001"
+
+@app.get("/api/businesses")
+def get_businesses():
+    """List all registered businesses."""
+    return {"businesses": list_businesses()}
+
 @app.get("/api/status")
-def status():
-    return {
-        "status": "running",
-        "business": "Lone Star Roofing Supply",
-        "business_id": "demo-business-001"
-    }
+def status(business_id: str = Query(default=DEFAULT_BIZ)):
+    try:
+        biz = get_business(business_id)
+    except KeyError as e:
+        raise HTTPException(status_code=404, detail=str(e))
+    return {"status": "running", "business_id": business_id, **biz}
 
 @app.post("/api/simulate")
-async def simulate_disruption():
+async def simulate_disruption(business_id: str = Query(default=DEFAULT_BIZ)):
+    global _live_log, _last_result, _is_running
     try:
-        result = run_agent_cycle(business_id="demo-business-001")
-
+        get_business(business_id)  # validate early
+    except KeyError as e:
+        raise HTTPException(status_code=404, detail=str(e))
+    _is_running = True
+    _live_log = []
+    try:
+        import asyncio, functools
+        result = await asyncio.to_thread(
+            functools.partial(run_agent_cycle, business_id=business_id, log_callback=lambda msg: _live_log.append(msg))
+        )
         if not result:
             return {
                 "success": False,
                 "error": "Agent did not complete. This is usually a Gemini quota issue. Wait 1 minute and try again."
             }
-
+        _last_result = result
         return {
             "success": True,
+            "business_id": business_id,
             "disruption": result.get("disruption", {}),
             "exposure": result.get("exposure", 0),
             "severity_score": result.get("severity_score", 0),
@@ -52,19 +74,29 @@ async def simulate_disruption():
             "raw": result,
         }
     except Exception as e:
-        return {
-            "success": False,
-            "error": f"{str(e)}"
-        }
+        return {"success": False, "error": str(e)}
+    finally:
+        _is_running = False
+
+@app.get("/api/live-log")
+def get_live_log():
+    global _live_log, _is_running
+    return {"logs": list(_live_log), "running": _is_running}
+
+@app.get("/api/trace")
+def get_trace(business_id: str = Query(default=DEFAULT_BIZ)):
+    global _last_result
+    return {"trace": _last_result, "business_id": business_id}
 
 @app.get("/api/alerts")
-def get_alerts():
-    """Returns past agent alerts from BigQuery."""
+def get_alerts(business_id: str = Query(default=DEFAULT_BIZ)):
+    """Returns past agent alerts from BigQuery for the given business."""
     try:
-        rows = run_query("""
+        rows = run_query(f"""
             SELECT id, business_id, severity_score, exposure_usd,
                    status, CAST(created_at AS STRING) as created_at
             FROM `akshxnsh-supplychain.supply_chain.agent_alerts`
+            WHERE business_id = '{business_id}'
             ORDER BY created_at DESC
             LIMIT 10
         """)
@@ -73,13 +105,13 @@ def get_alerts():
         return {"alerts": [], "error": str(e)}
 
 @app.get("/api/suppliers")
-def get_suppliers():
-    """Returns the business's current supplier list."""
+def get_suppliers(business_id: str = Query(default=DEFAULT_BIZ)):
+    """Returns the current supplier list for the given business."""
     try:
-        rows = run_query("""
+        rows = run_query(f"""
             SELECT supplier_name, country, product_category, annual_spend_usd
             FROM `akshxnsh-supplychain.supply_chain.business_suppliers`
-            WHERE business_id = 'demo-business-001'
+            WHERE business_id = '{business_id}'
         """)
         return {"suppliers": rows}
     except Exception as e:
@@ -110,10 +142,26 @@ def generate_po(req: GeneratePORequest):
             unit_price=req.unit_price,
             required_by=req.required_by,
         )
-        import json
         return {"success": True, **json.loads(result)}
     except Exception as e:
         return {"success": False, "error": str(e)}
+
+class ApproveActionRequest(BaseModel):
+    supplier_name: str
+    purchase_order: str
+    owner_email: str
+
+@app.post("/api/approve-action")
+def approve_action(req: ApproveActionRequest, business_id: str = Query(default=DEFAULT_BIZ)):
+    from datetime import datetime as _dt
+    approved_at = _dt.utcnow().isoformat() + "Z"
+    print(f"[APPROVAL] {approved_at} | business={business_id} | supplier={req.supplier_name}")
+    return {
+        "success": True,
+        "approved_at": approved_at,
+        "business_id": business_id,
+        "supplier_name": req.supplier_name,
+    }
 
 if __name__ == "__main__":
     import uvicorn

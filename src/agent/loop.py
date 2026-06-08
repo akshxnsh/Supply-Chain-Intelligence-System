@@ -1,4 +1,4 @@
-import os, json, time, uuid
+import os, json, time
 from datetime import datetime
 from dotenv import load_dotenv
 from google import genai
@@ -6,6 +6,7 @@ from google.genai import types
 from phoenix.otel import register
 from openinference.instrumentation.google_genai import GoogleGenAIInstrumentor
 from src.agent.tools import TOOL_DEFINITIONS, TOOL_HANDLERS
+from src.agent.business_registry import get_business
 from src.ingestion.bq_client import save_alert
 
 load_dotenv()
@@ -23,9 +24,13 @@ tracer = tracer_provider.get_tracer("supply-chain-agent")
 client = genai.Client(api_key=os.environ["GEMINI_API_KEY"])
 MODEL  = os.getenv("MODEL_NAME", "models/gemini-2.5-flash")
 
-SYSTEM_PROMPT = """
-You are an AI supply chain disruption detection and mitigation agent for Lone Star Roofing Supply.
-business_id = 'demo-business-001'
+def build_system_prompt(business_id: str) -> str:
+    biz = get_business(business_id)
+    return f"""
+You are an AI supply chain disruption detection and mitigation agent for {biz['name']}.
+business_id = '{business_id}'
+industry = '{biz['industry']}'
+primary_port = '{biz['primary_port']}'
 
 Your role: Synthesize multiple signal sources to detect supply chain disruptions BEFORE they impact the business.
 
@@ -88,7 +93,7 @@ CRITICAL: Multi-Signal Detection Algorithm
    - calibration_confidence (how confident are we?)
    - black_swan_detected (yes/no)
    - suggested_alternatives: array of up to 3 objects, each containing:
-       {
+       {{
          "rank": 1/2/3,
          "supplier_id": "...",
          "name": "...",
@@ -103,7 +108,7 @@ CRITICAL: Multi-Signal Detection Algorithm
          "completed_orders_count": <int>,
          "total_score": <weighted composite 0-10>,
          "tradeoff_summary": "e.g. $0.01/unit cheaper than primary but 3 days longer lead time. 100% on-time delivery across 2 historical orders."
-       }
+       }}
    - top_supplier (name of rank-1 recommended supplier)
    - purchase_order (drafted for top_supplier, based on MOQ and deficit)
    - owner_email (includes full suggested_alternatives list)
@@ -135,34 +140,42 @@ def handle_tool_call(tool_name: str, tool_args: dict) -> str:
     except Exception as e:
         return json.dumps({"error": str(e)})
 
-def run_agent_cycle(business_id: str = "demo-business-001") -> dict | None:
+def run_agent_cycle(business_id: str = "demo-business-001", log_callback=None) -> dict | None:
     """Run one full agent cycle with multi-signal disruption detection."""
+
+    def log(msg):
+        print(msg)
+        if log_callback:
+            log_callback(msg)
 
     with tracer.start_as_current_span("agent_cycle") as span:
         span.set_attribute("business_id", business_id)
         span.set_attribute("model", MODEL)
         span.set_attribute("cycle_start", datetime.utcnow().isoformat())
 
-        print(f"\n{'='*60}")
-        print(f"🤖 Agent cycle starting (Multi-Signal Detection) — {datetime.utcnow().strftime('%H:%M:%S')}")
-        print(f"{'='*60}")
+        biz = get_business(business_id)
+        log(f"\n{'='*60}")
+        log(f"🤖 Agent cycle starting — {biz['name']} [{business_id}] — {datetime.utcnow().strftime('%H:%M:%S')}")
+        log(f"{'='*60}")
 
+        system_prompt = build_system_prompt(business_id)
         messages = [{"role": "user",
-                     "parts": [{"text": SYSTEM_PROMPT}]}]
+                     "parts": [{"text": "Run the full supply chain disruption analysis now. Follow every step in the algorithm."}]}]
 
-        # Multi-turn tool calling loop
-        max_turns = 20  # Increased from 15 for additional signal processing
+        max_turns = 20
         turn = 0
         final_result = None
+        tool_call_log = []
 
         while turn < max_turns:
             turn += 1
-            print(f"\n🔄 Turn {turn}...")
+            log(f"\n🔄 Turn {turn}...")
 
             response = client.models.generate_content(
                 model=MODEL,
                 contents=messages,
                 config=types.GenerateContentConfig(
+                    system_instruction=system_prompt,
                     tools=[TOOL_DEFINITIONS],
                     temperature=0.1,
                 )
@@ -177,8 +190,7 @@ def run_agent_cycle(business_id: str = "demo-business-001") -> dict | None:
             content   = candidate.content
 
             if content is None or not hasattr(content, 'parts') or not content.parts:
-                print("  ⚠️ Empty content — agent finished early")
-                # Try to extract any text from the last response
+                log("  ⚠️ Empty content — agent finished early")
                 final_result = {"raw_response": "Agent completed pipeline"}
                 break
 
@@ -205,7 +217,7 @@ def run_agent_cycle(business_id: str = "demo-business-001") -> dict | None:
                     name = fc.name
                     args = dict(fc.args) if fc.args else {}
 
-                    print(f"  🔧 Tool call: {name}({args})")
+                    log(f"  🔧 Tool call: {name}({args})")
 
                     with tracer.start_as_current_span(f"tool_{name}") as tool_span:
                         tool_span.set_attribute("tool.name", name)
@@ -213,7 +225,8 @@ def run_agent_cycle(business_id: str = "demo-business-001") -> dict | None:
                         result = handle_tool_call(name, args)
                         tool_span.set_attribute("tool.result_length", len(result))
 
-                    print(f"  ✅ {name} returned {len(result)} chars")
+                    log(f"  ✅ {name} returned {len(result)} chars")
+                    tool_call_log.append({"tool": name, "args": args, "result_len": len(result)})
                     tool_results.append({
                         "function_response": {
                             "name": name,
@@ -228,7 +241,7 @@ def run_agent_cycle(business_id: str = "demo-business-001") -> dict | None:
                 text_parts = [p.text for p in content.parts
                               if hasattr(p, 'text') and p.text]
                 final_text = " ".join(text_parts)
-                print(f"\n📋 Agent final response ({len(final_text)} chars)")
+                log(f"\n📋 Agent final response ({len(final_text)} chars)")
 
                 try:
                     start = final_text.find("{")
@@ -239,6 +252,9 @@ def run_agent_cycle(business_id: str = "demo-business-001") -> dict | None:
                         final_result = {"raw_response": final_text}
                 except Exception:
                     final_result = {"raw_response": final_text}
+
+                if isinstance(final_result, dict):
+                    final_result["tool_calls"] = tool_call_log
 
                 span.set_attribute("turns_taken", turn)
                 span.set_attribute("success", True)

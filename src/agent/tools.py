@@ -310,7 +310,8 @@ def detect_disruptions(business_id: str = "demo-business-001") -> str:
             for sig in port_sigs:
                 if sig["strike_flag"] or sig["congestion_score"] > 5.0:
                     signals_hit.append("port_activity")
-                    signal_details.append(f"Port {port_name}: {'Strike' if sig['strike_flag'] else f'Congestion {sig[\"congestion_score\"]}'} ({sig['delay_hours']}hrs delay)")
+                    port_status = "Strike" if sig["strike_flag"] else f"Congestion {sig['congestion_score']}"
+                    signal_details.append(f"Port {port_name}: {port_status} ({sig['delay_hours']}hrs delay)")
         
         # Check 4: Tariff increases affecting supplier costs
         tariff_key = (supp_country, supp_product)

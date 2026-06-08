@@ -394,7 +394,42 @@ def seed_supplier_reviews():
     ]
     load_rows("supplier_reviews", rows)
 
-if __name__ == "__main__":
+def seed_business_002():
+    """Seed demo-business-002: Pacific Rim Electronics Supply Co."""
+    today = datetime.utcnow()
+    now = today.isoformat()
+    def d(days): return (today + timedelta(days=days)).strftime("%Y-%m-%d")
+
+    suppliers = [
+        {"id": "b2-sup-001", "business_id": "demo-business-002", "supplier_name": "TSMC Distribution Partners", "country": "Taiwan",      "product_category": "semiconductors",   "annual_spend_usd": 420000},
+        {"id": "b2-sup-002", "business_id": "demo-business-002", "supplier_name": "Samsung Electronics Trade",  "country": "South Korea", "product_category": "semiconductors",   "annual_spend_usd": 310000},
+        {"id": "b2-sup-003", "business_id": "demo-business-002", "supplier_name": "Foxconn Component Sales",    "country": "Taiwan",      "product_category": "circuit_boards",   "annual_spend_usd": 185000},
+        {"id": "b2-sup-004", "business_id": "demo-business-002", "supplier_name": "LG Display Export Co",       "country": "South Korea", "product_category": "displays",         "annual_spend_usd": 140000},
+        {"id": "b2-sup-005", "business_id": "demo-business-002", "supplier_name": "Japan Display Inc",          "country": "Japan",       "product_category": "displays",         "annual_spend_usd": 95000},
+        {"id": "b2-sup-006", "business_id": "demo-business-002", "supplier_name": "Murata Manufacturing",       "country": "Japan",       "product_category": "semiconductors",   "annual_spend_usd": 72000},
+    ]
+    load_rows("business_suppliers", suppliers)
+
+    orders = [
+        {"id": "b2-ord-001", "business_id": "demo-business-002", "supplier_id": "b2-sup-001", "order_value_usd": 82000, "quantity": 20000, "primary_unit_price_usd": 4.10, "eta_date": d(5),  "status": "pending"},
+        {"id": "b2-ord-002", "business_id": "demo-business-002", "supplier_id": "b2-sup-001", "order_value_usd": 61500, "quantity": 15000, "primary_unit_price_usd": 4.10, "eta_date": d(9),  "status": "pending"},
+        {"id": "b2-ord-003", "business_id": "demo-business-002", "supplier_id": "b2-sup-002", "order_value_usd": 47000, "quantity": 10000, "primary_unit_price_usd": 4.70, "eta_date": d(7),  "status": "pending"},
+        {"id": "b2-ord-004", "business_id": "demo-business-002", "supplier_id": "b2-sup-003", "order_value_usd": 28000, "quantity": 2000,  "primary_unit_price_usd": 14.00,"eta_date": d(12), "status": "pending"},
+        {"id": "b2-ord-005", "business_id": "demo-business-002", "supplier_id": "b2-sup-004", "order_value_usd": 35000, "quantity": 500,   "primary_unit_price_usd": 70.00,"eta_date": d(14), "status": "pending"},
+    ]
+    load_rows("pending_orders", orders)
+
+    inv = [
+        {"id": "b2-inv-001", "business_id": "demo-business-002", "product_category": "semiconductors", "inventory_value_usd": 22000.0, "updated_at": now},
+        {"id": "b2-inv-002", "business_id": "demo-business-002", "product_category": "circuit_boards", "inventory_value_usd": 8000.0,  "updated_at": now},
+        {"id": "b2-inv-003", "business_id": "demo-business-002", "product_category": "displays",       "inventory_value_usd": 12000.0, "updated_at": now},
+    ]
+    load_rows("inventory", inv)
+
+    print("✅ demo-business-002 (Pacific Rim Electronics Supply Co.) seeded")
+
+
+def seed_all():
     print("🌱 Seeding BigQuery tables...\n")
     seed_business_suppliers()
     seed_pending_orders()
@@ -407,4 +442,9 @@ if __name__ == "__main__":
     seed_inventory()
     seed_completed_orders()
     seed_supplier_reviews()
+    seed_business_002()
     print("\n✅ ALL SEED DATA LOADED — BigQuery ready")
+
+
+if __name__ == "__main__":
+    seed_all()
