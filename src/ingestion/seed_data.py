@@ -74,20 +74,51 @@ def seed_pending_orders():
 
 def seed_shipment_timetable():
     today = datetime.utcnow()
+    def shipment_row(
+        shipment_id,
+        business_id,
+        supplier_id,
+        product_category,
+        quantity,
+        shipment_value_usd,
+        origin_port,
+        destination_port,
+        etd,
+        eta,
+        route,
+    ):
+        return {
+            "id": shipment_id,
+            "business_id": business_id,
+            "supplier_id": supplier_id,
+            "product_category": product_category,
+            "quantity": quantity,
+            "shipment_value_usd": shipment_value_usd,
+            "origin_port": origin_port,
+            "destination_port": destination_port,
+            "dispatched_date": etd.strftime("%Y-%m-%d"),
+            "expected_arrival_date": eta.strftime("%Y-%m-%d"),
+            "etd": etd.strftime("%Y-%m-%dT%H:%M:%S"),
+            "eta": eta.strftime("%Y-%m-%dT%H:%M:%S"),
+            "journey_time_hours": round((eta - etd).total_seconds() / 3600, 1),
+            "route": route,
+            "status": "in_transit",
+        }
+
     # Inbound supplier shipments — what the business has ordered from its suppliers (supply side)
     rows = [
         # demo-business-001: roofing materials from US suppliers (domestic, Port of Houston)
-        {"id": "shp-001", "business_id": "demo-business-001", "supplier_id": "sup-001", "product_category": "roofing_materials", "quantity": 5900, "shipment_value_usd": 28400, "origin_port": "Port of Houston",        "destination_port": "Port of Baltimore", "dispatched_date": (today - timedelta(days=2)).strftime("%Y-%m-%d"), "expected_arrival_date": (today + timedelta(days=4)).strftime("%Y-%m-%d"),  "status": "in_transit"},
-        {"id": "shp-002", "business_id": "demo-business-001", "supplier_id": "sup-001", "product_category": "roofing_materials", "quantity": 3160, "shipment_value_usd": 15200, "origin_port": "Port of Houston",        "destination_port": "Port of Baltimore", "dispatched_date": (today - timedelta(days=1)).strftime("%Y-%m-%d"), "expected_arrival_date": (today + timedelta(days=6)).strftime("%Y-%m-%d"),  "status": "in_transit"},
-        {"id": "shp-003", "business_id": "demo-business-001", "supplier_id": "sup-001", "product_category": "roofing_materials", "quantity": 2036, "shipment_value_usd": 9800,  "origin_port": "Port of Houston",        "destination_port": "Port of Baltimore", "dispatched_date": (today).strftime("%Y-%m-%d"),                     "expected_arrival_date": (today + timedelta(days=8)).strftime("%Y-%m-%d"),  "status": "in_transit"},
+        shipment_row("shp-001", "demo-business-001", "sup-001", "roofing_materials", 5900, 28400, "Port of Houston", "Port of Baltimore", today - timedelta(days=2), today + timedelta(days=4), "Port of Houston > Memphis Rail Hub > Port of Baltimore"),
+        shipment_row("shp-002", "demo-business-001", "sup-001", "roofing_materials", 3160, 15200, "Port of Houston", "Port of Baltimore", today - timedelta(days=1), today + timedelta(days=6), "Port of Houston > Nashville Rail Hub > Port of Baltimore"),
+        shipment_row("shp-003", "demo-business-001", "sup-001", "roofing_materials", 2036, 9800, "Port of Houston", "Port of Baltimore", today, today + timedelta(days=8), "Port of Houston > Atlanta Rail Hub > Port of Baltimore"),
         # demo-business-001: roofing materials from second US supplier
-        {"id": "shp-004", "business_id": "demo-business-001", "supplier_id": "sup-002", "product_category": "roofing_materials", "quantity": 4490, "shipment_value_usd": 22000, "origin_port": "Port of Houston",        "destination_port": "Port of Baltimore", "dispatched_date": (today - timedelta(days=1)).strftime("%Y-%m-%d"), "expected_arrival_date": (today + timedelta(days=5)).strftime("%Y-%m-%d"),  "status": "in_transit"},
-        {"id": "shp-005", "business_id": "demo-business-001", "supplier_id": "sup-002", "product_category": "roofing_materials", "quantity": 2347, "shipment_value_usd": 11500, "origin_port": "Port of Houston",        "destination_port": "Port of Baltimore", "dispatched_date": (today).strftime("%Y-%m-%d"),                     "expected_arrival_date": (today + timedelta(days=10)).strftime("%Y-%m-%d"), "status": "in_transit"},
+        shipment_row("shp-004", "demo-business-001", "sup-002", "roofing_materials", 4490, 22000, "Port of Houston", "Port of Baltimore", today - timedelta(days=1), today + timedelta(days=5), "Port of Houston > Memphis Rail Hub > Port of Baltimore"),
+        shipment_row("shp-005", "demo-business-001", "sup-002", "roofing_materials", 2347, 11500, "Port of Houston", "Port of Baltimore", today, today + timedelta(days=10), "Port of Houston > Nashville Rail Hub > Port of Baltimore"),
         # demo-business-001: roofing materials from China supplier (longer transit)
-        {"id": "shp-006", "business_id": "demo-business-001", "supplier_id": "sup-003", "product_category": "roofing_materials", "quantity": 4230, "shipment_value_usd": 18700, "origin_port": "Port of Shanghai",       "destination_port": "Port of Baltimore", "dispatched_date": (today - timedelta(days=8)).strftime("%Y-%m-%d"), "expected_arrival_date": (today + timedelta(days=14)).strftime("%Y-%m-%d"), "status": "in_transit"},
+        shipment_row("shp-006", "demo-business-001", "sup-003", "roofing_materials", 4230, 18700, "Port of Shanghai", "Port of Baltimore", today - timedelta(days=8), today + timedelta(days=14), "Port of Shanghai > Singapore Strait > Port of Los Angeles > Port of Baltimore"),
         # demo-business-001: fasteners from US and Korea
-        {"id": "shp-007", "business_id": "demo-business-001", "supplier_id": "sup-006", "product_category": "fasteners",         "quantity": 7000, "shipment_value_usd": 8400,  "origin_port": "Port of Houston",        "destination_port": "Port of Baltimore", "dispatched_date": (today - timedelta(days=1)).strftime("%Y-%m-%d"), "expected_arrival_date": (today + timedelta(days=7)).strftime("%Y-%m-%d"),  "status": "in_transit"},
-        {"id": "shp-008", "business_id": "demo-business-001", "supplier_id": "sup-007", "product_category": "fasteners",         "quantity": 5565, "shipment_value_usd": 6200,  "origin_port": "Port of Busan",          "destination_port": "Port of Baltimore", "dispatched_date": (today - timedelta(days=3)).strftime("%Y-%m-%d"), "expected_arrival_date": (today + timedelta(days=9)).strftime("%Y-%m-%d"),  "status": "in_transit"},
+        shipment_row("shp-007", "demo-business-001", "sup-006", "fasteners", 7000, 8400, "Port of Houston", "Port of Baltimore", today - timedelta(days=1), today + timedelta(days=7), "Port of Houston > Atlanta Rail Hub > Port of Baltimore"),
+        shipment_row("shp-008", "demo-business-001", "sup-007", "fasteners", 5565, 6200, "Port of Busan", "Port of Baltimore", today - timedelta(days=3), today + timedelta(days=9), "Port of Busan > Port of Los Angeles > Port of Baltimore"),
     ]
     load_rows("shipment_timetable", rows)
 
@@ -450,11 +481,41 @@ def seed_business_002():
         write_disposition=bigquery.WriteDisposition.WRITE_APPEND,
     )
 
+    def shipment_row(
+        shipment_id,
+        supplier_id,
+        product_category,
+        quantity,
+        shipment_value_usd,
+        origin_port,
+        destination_port,
+        etd,
+        eta,
+        route,
+    ):
+        return {
+            "id": shipment_id,
+            "business_id": "demo-business-002",
+            "supplier_id": supplier_id,
+            "product_category": product_category,
+            "quantity": quantity,
+            "shipment_value_usd": shipment_value_usd,
+            "origin_port": origin_port,
+            "destination_port": destination_port,
+            "dispatched_date": etd.strftime("%Y-%m-%d"),
+            "expected_arrival_date": eta.strftime("%Y-%m-%d"),
+            "etd": etd.strftime("%Y-%m-%dT%H:%M:%S"),
+            "eta": eta.strftime("%Y-%m-%dT%H:%M:%S"),
+            "journey_time_hours": round((eta - etd).total_seconds() / 3600, 1),
+            "route": route,
+            "status": "in_transit",
+        }
+
     shipments = [
-        {"id": "b2-shp-001", "business_id": "demo-business-002", "supplier_id": "b2-sup-001", "product_category": "semiconductors", "quantity": 20000, "shipment_value_usd": 82000, "origin_port": "Port of Kaohsiung",   "destination_port": "Port of Los Angeles", "dispatched_date": (today - timedelta(days=10)).strftime("%Y-%m-%d"), "expected_arrival_date": d(5),  "status": "in_transit"},
-        {"id": "b2-shp-002", "business_id": "demo-business-002", "supplier_id": "b2-sup-001", "product_category": "semiconductors", "quantity": 15000, "shipment_value_usd": 61500, "origin_port": "Port of Kaohsiung",   "destination_port": "Port of Los Angeles", "dispatched_date": (today - timedelta(days=8)).strftime("%Y-%m-%d"),  "expected_arrival_date": d(9),  "status": "in_transit"},
-        {"id": "b2-shp-003", "business_id": "demo-business-002", "supplier_id": "b2-sup-003", "product_category": "circuit_boards", "quantity": 2000,  "shipment_value_usd": 28000, "origin_port": "Port of Kaohsiung",   "destination_port": "Port of Los Angeles", "dispatched_date": (today - timedelta(days=7)).strftime("%Y-%m-%d"),  "expected_arrival_date": d(12), "status": "in_transit"},
-        {"id": "b2-shp-004", "business_id": "demo-business-002", "supplier_id": "b2-sup-004", "product_category": "displays",       "quantity": 500,   "shipment_value_usd": 35000, "origin_port": "Port of Busan",       "destination_port": "Port of Los Angeles", "dispatched_date": (today - timedelta(days=6)).strftime("%Y-%m-%d"),  "expected_arrival_date": d(14), "status": "in_transit"},
+        shipment_row("b2-shp-001", "b2-sup-001", "semiconductors", 20000, 82000, "Port of Kaohsiung", "Port of Los Angeles", today - timedelta(days=10), today + timedelta(days=5), "Port of Kaohsiung > Pacific Crossing > Port of Los Angeles"),
+        shipment_row("b2-shp-002", "b2-sup-001", "semiconductors", 15000, 61500, "Port of Kaohsiung", "Port of Los Angeles", today - timedelta(days=8), today + timedelta(days=9), "Port of Kaohsiung > Pacific Crossing > Port of Los Angeles"),
+        shipment_row("b2-shp-003", "b2-sup-003", "circuit_boards", 2000, 28000, "Port of Kaohsiung", "Port of Los Angeles", today - timedelta(days=7), today + timedelta(days=12), "Port of Kaohsiung > Pacific Crossing > Port of Los Angeles"),
+        shipment_row("b2-shp-004", "b2-sup-004", "displays", 500, 35000, "Port of Busan", "Port of Los Angeles", today - timedelta(days=6), today + timedelta(days=14), "Port of Busan > Pacific Crossing > Port of Los Angeles"),
     ]
     load_rows(
         "shipment_timetable",

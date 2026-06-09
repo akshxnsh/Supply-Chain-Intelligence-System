@@ -95,6 +95,10 @@ origin_port STRING
 destination_port STRING
 dispatched_date DATE
 expected_arrival_date DATE
+etd TIMESTAMP
+eta TIMESTAMP
+journey_time_hours FLOAT
+route STRING
 status STRING
 ```
 

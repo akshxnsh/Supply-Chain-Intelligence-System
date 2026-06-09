@@ -93,6 +93,10 @@ SHIPMENT_TIMETABLE_SCHEMA = [
     bigquery.SchemaField("destination_port",      "STRING",  mode="NULLABLE"),
     bigquery.SchemaField("dispatched_date",       "DATE",    mode="NULLABLE"),
     bigquery.SchemaField("expected_arrival_date", "DATE",    mode="REQUIRED"),
+    bigquery.SchemaField("etd",                   "TIMESTAMP", mode="REQUIRED"),
+    bigquery.SchemaField("eta",                   "TIMESTAMP", mode="REQUIRED"),
+    bigquery.SchemaField("journey_time_hours",    "FLOAT",   mode="REQUIRED"),
+    bigquery.SchemaField("route",                 "STRING",  mode="REQUIRED"),
     bigquery.SchemaField("status",                "STRING",  mode="REQUIRED"),
 ]
 
