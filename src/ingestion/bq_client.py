@@ -207,7 +207,12 @@ def query_shipments_at_risk(
     sql = f"""
         SELECT id, supplier_id, product_category, quantity, shipment_value_usd,
                CAST(expected_arrival_date AS STRING) as expected_arrival_date,
-               origin_port, destination_port, status
+               origin_port, destination_port,
+               CAST(etd AS STRING) AS etd,
+               CAST(eta AS STRING) AS eta,
+               journey_time_hours,
+               route,
+               status
         FROM `{PROJECT_ID}.{DATASET}.shipment_timetable`
         WHERE business_id = @business_id
           AND supplier_id IN UNNEST(@supplier_ids)
@@ -384,6 +389,10 @@ def query_supplier_timetable(business_id: str) -> list[dict]:
             CAST(st.expected_arrival_date AS STRING) AS eta_date,
             CAST(st.dispatched_date AS STRING) AS dispatch_timestamp,
             CAST(st.expected_arrival_date AS STRING) AS estimated_arrival,
+            CAST(st.etd AS STRING) AS etd,
+            CAST(st.eta AS STRING) AS eta,
+            st.journey_time_hours,
+            st.route,
             st.status
         FROM `{PROJECT_ID}.{DATASET}.shipment_timetable` st
         JOIN `{PROJECT_ID}.{DATASET}.business_suppliers` bs

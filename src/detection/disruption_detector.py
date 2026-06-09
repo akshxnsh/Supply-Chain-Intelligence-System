@@ -36,10 +36,12 @@ def detect_disruptions(business_id: str = "demo-business-001") -> str:
     # Load active shipments up front: needed both for location-based checks and to
     # scope the port-status query to only the ports this business actually touches.
     from src.prediction.utils import (
+        affected_weather_checkpoints,
+        checkpoint_is_current_or_upcoming,
+        extract_matching_route_checkpoints,
         fetch_shipment_schedule,
-        predict_shipment_location,
         match_news_to_shipment,
-        is_port_affected,
+        split_route,
     )
     shipments = fetch_shipment_schedule(business_id)
 
@@ -51,6 +53,9 @@ def detect_disruptions(business_id: str = "demo-business-001") -> str:
             pn = sh.get(key)
             if pn and pn != "Domestic":
                 relevant_ports.add(pn)
+        for checkpoint in split_route(sh.get("route") or ""):
+            if checkpoint and checkpoint != "Domestic":
+                relevant_ports.add(checkpoint)
     port_data = []
     for pn in relevant_ports:
         port_data.extend(query_port_status(pn))
@@ -69,6 +74,7 @@ def detect_disruptions(business_id: str = "demo-business-001") -> str:
             affected_by_location.setdefault(country_hint, []).append({
                 "type": "disruption_event",
                 "headline": d.get("headline", "Unknown"),
+                "location_name": d.get("location_name", ""),
                 "severity": d.get("severity_raw", 5.0)
             })
     
@@ -146,18 +152,31 @@ def detect_disruptions(business_id: str = "demo-business-001") -> str:
             }
         entry = supplier_signals[supp_id]
 
-        # Predict current port
-        current_port = predict_shipment_location(shipment, now)
-
-        # Weather check for the predicted port
-        if any(is_port_affected(current_port, [w], [] ) for w in weather_alerts):
+        # Weather check: only current/upcoming route checkpoints should fire.
+        weather_hits = []
+        for weather in weather_alerts:
+            for checkpoint in affected_weather_checkpoints(weather):
+                if checkpoint_is_current_or_upcoming(checkpoint, shipment, now):
+                    weather_hits.append(checkpoint)
+        if weather_hits:
             entry["signals"].add("weather_alert")
-            entry["signal_details"].append(f"Weather alert affecting port {current_port}")
+            entry["signal_details"].append(
+                f"Weather alert affecting route checkpoint(s): {', '.join(sorted(set(weather_hits)))}"
+            )
 
-        # Port activity check (use full port_data list)
-        if any(is_port_affected(current_port, [], [p]) for p in port_data):
+        # Port activity check: suppress disruptions at checkpoints already passed.
+        port_hits = []
+        for port in port_data:
+            if not (port.get("strike_flag") or port.get("congestion_score", 0) > 5.0):
+                continue
+            port_name = port.get("port_name", "")
+            if checkpoint_is_current_or_upcoming(port_name, shipment, now):
+                port_hits.append(port_name)
+        if port_hits:
             entry["signals"].add("port_activity")
-            entry["signal_details"].append(f"Port activity affecting {current_port}")
+            entry["signal_details"].append(
+                f"Port activity affecting route checkpoint(s): {', '.join(sorted(set(port_hits)))}"
+            )
 
         # News check – only flag when headline mentions the current port and the port is affected
         for news_item in disruptions:
@@ -168,10 +187,29 @@ def detect_disruptions(business_id: str = "demo-business-001") -> str:
     # ---------------------------------------------------------------------
     # 2. Macro‑level news (country‑based) – keep existing behaviour
     # ---------------------------------------------------------------------
+    shipments_by_supplier: Dict[str, list] = {}
+    for shipment in shipments:
+        shipments_by_supplier.setdefault(shipment.get("supplier_id"), []).append(shipment)
+
     for supp in business_supp:
         supp_id = supp.get("id")
         supp_country = supp.get("country", "").lower()
         if supp_country in affected_by_location:
+            active_signals = []
+            for sig in affected_by_location[supp_country]:
+                signal_text = f"{sig.get('headline', '')} {sig.get('location_name', '')}"
+                for shipment in shipments_by_supplier.get(supp_id, []):
+                    route_mentions = extract_matching_route_checkpoints(signal_text, shipment)
+                    if route_mentions:
+                        if any(
+                            checkpoint_is_current_or_upcoming(checkpoint, shipment, now)
+                            for checkpoint in route_mentions
+                        ):
+                            active_signals.append(sig)
+                        continue
+                    active_signals.append(sig)
+            if not active_signals:
+                continue
             entry = supplier_signals.setdefault(supp_id, {
                 "supplier_id": supp_id,
                 "supplier_name": supp.get("supplier_name"),
@@ -182,7 +220,7 @@ def detect_disruptions(business_id: str = "demo-business-001") -> str:
                 "tariff_cost_impact_usd": 0.0,
             })
             entry["signals"].add("disruption_event")
-            for sig in affected_by_location[supp_country]:
+            for sig in active_signals:
                 entry["signal_details"].append(f"{sig['headline']} (severity: {sig['severity']})")
 
     # ---------------------------------------------------------------------
@@ -190,10 +228,6 @@ def detect_disruptions(business_id: str = "demo-business-001") -> str:
     # ---------------------------------------------------------------------
     # Tariffs affect supplier-side supply cost. Use inbound shipments, not
     # pending client orders, because pending_orders is demand-side data.
-    shipments_by_supplier: Dict[str, list] = {}
-    for shipment in shipments:
-        shipments_by_supplier.setdefault(shipment.get("supplier_id"), []).append(shipment)
-
     for supp in business_supp:
         supp_id = supp.get("id")
         supp_country = supp.get("country", "").lower()
