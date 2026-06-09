@@ -11,18 +11,50 @@ const DEFAULT_BIZ = "demo-business-001"
 
 const SCREEN_TITLES = {
   overview: "Overview",
-  alerts: "Active Alerts",
-  trace: "Agent Simulation",
-  health: "Supplier Health",
+  alerts:   "Active Alerts",
+  trace:    "Agent Simulation",
+  health:   "Supplier Health",
+}
+
+function SunIcon() {
+  return (
+    <svg width="16" height="16" viewBox="0 0 24 24" fill="none"
+      stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+      <circle cx="12" cy="12" r="5"/>
+      <line x1="12" y1="1" x2="12" y2="3"/>
+      <line x1="12" y1="21" x2="12" y2="23"/>
+      <line x1="4.22" y1="4.22" x2="5.64" y2="5.64"/>
+      <line x1="18.36" y1="18.36" x2="19.78" y2="19.78"/>
+      <line x1="1" y1="12" x2="3" y2="12"/>
+      <line x1="21" y1="12" x2="23" y2="12"/>
+      <line x1="4.22" y1="19.78" x2="5.64" y2="18.36"/>
+      <line x1="18.36" y1="5.64" x2="19.78" y2="4.22"/>
+    </svg>
+  )
+}
+
+function MoonIcon() {
+  return (
+    <svg width="16" height="16" viewBox="0 0 24 24" fill="none"
+      stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+      <path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/>
+    </svg>
+  )
 }
 
 export default function App() {
-  const [screen, setScreen]       = useState("trace")
+  const [screen, setScreen]         = useState("trace")
   const [businesses, setBusinesses] = useState([])
   const [businessId, setBusinessId] = useState(DEFAULT_BIZ)
-  const [loading, setLoading]     = useState(false)
-  const [result, setResult]       = useState(null)
-  const [error, setError]         = useState(null)
+  const [loading, setLoading]       = useState(false)
+  const [result, setResult]         = useState(null)
+  const [error, setError]           = useState(null)
+  const [collapsed, setCollapsed]   = useState(false)
+  const [isDark, setIsDark]         = useState(true)
+
+  useEffect(() => {
+    document.documentElement.classList.toggle("light", !isDark)
+  }, [isDark])
 
   useEffect(() => {
     axios.get(`${API}/api/businesses`)
@@ -55,20 +87,35 @@ export default function App() {
     setError(null)
   }
 
+  const sidebarWidth = collapsed ? "var(--sidebar-width-collapsed)" : "var(--sidebar-width)"
+
   return (
-    <div style={{ display: "flex", minHeight: "100vh", background: "#000" }}>
-      <Sidebar active={screen} onNavigate={setScreen} />
+    <div style={{ display: "flex", minHeight: "100vh", background: "var(--bg-body)" }}>
+      <Sidebar
+        active={screen}
+        onNavigate={setScreen}
+        collapsed={collapsed}
+        onToggle={() => setCollapsed(c => !c)}
+      />
 
-      <div style={{ marginLeft: "var(--sidebar-width)", flex: 1, display: "flex", flexDirection: "column" }}>
+      <div style={{
+        marginLeft: sidebarWidth,
+        flex: 1,
+        display: "flex",
+        flexDirection: "column",
+        transition: "margin-left 0.25s ease",
+      }}>
 
+        {/* Topbar — same height as sidebar logo row */}
         <header style={{
           borderBottom: "1px solid var(--border)",
-          padding: "0 32px",
-          height: 56,
+          padding: "0 24px",
+          height: "var(--header-height)",
           display: "flex",
           alignItems: "center",
           justifyContent: "space-between",
-          background: "#050505",
+          background: "var(--bg-header)",
+          flexShrink: 0,
         }}>
           <span style={{ fontWeight: 700, color: "var(--text-primary)", fontSize: 15 }}>
             {SCREEN_TITLES[screen]}
@@ -94,11 +141,29 @@ export default function App() {
               ))}
             </select>
 
+            {/* Light / dark toggle */}
+            <button
+              onClick={() => setIsDark(d => !d)}
+              title={isDark ? "Switch to light mode" : "Switch to dark mode"}
+              style={{
+                background: "var(--bg-card)",
+                border: "1px solid var(--border)",
+                borderRadius: 8,
+                color: "var(--text-secondary)",
+                padding: "6px 10px",
+                cursor: "pointer",
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "center",
+                lineHeight: 1,
+              }}
+            >
+              {isDark ? <SunIcon /> : <MoonIcon />}
+            </button>
+
             <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
               <div style={{
-                width: 8,
-                height: 8,
-                borderRadius: "50%",
+                width: 8, height: 8, borderRadius: "50%",
                 background: "var(--accent-green)",
                 boxShadow: "0 0 6px var(--accent-green)",
               }} />
@@ -109,8 +174,8 @@ export default function App() {
 
         <main style={{ flex: 1, overflowY: "auto" }}>
           {screen === "overview" && <OverviewScreen />}
-          {screen === "alerts" && <AlertsScreen businessId={businessId} />}
-          {screen === "trace"  && (
+          {screen === "alerts"   && <AlertsScreen businessId={businessId} />}
+          {screen === "trace"    && (
             <TraceScreen
               businessId={businessId}
               loading={loading}
@@ -119,7 +184,7 @@ export default function App() {
               error={error}
             />
           )}
-          {screen === "health" && <SupplierHealthScreen businessId={businessId} />}
+          {screen === "health"   && <SupplierHealthScreen businessId={businessId} />}
         </main>
 
       </div>

@@ -26,9 +26,11 @@ from src.agent.tools import (
     get_recent_disruptions,
     get_shipment_timetable,
     get_supplier_reviews,
+    get_severity_calibration_drift,
     get_tariff_updates,
     get_weather_alerts,
     query_calibration_baseline,
+    query_recent_cycle_performance,
     save_alert_record,
     search_alternative_suppliers,
     score_suppliers,
@@ -164,12 +166,16 @@ def create_root_agent() -> LlmAgent:
             "Calibrates recommendations against historical outcomes and confidence."
         ),
         instruction=_instruction(
-            "Query the closest historical event type and region. Return the "
-            "weighted baseline severity, confidence, record count, and a "
-            "concise adjustment recommendation. Do not replace measured "
-            "exposure or inventory facts."
+            "Query the closest historical event type and region using query_calibration_baseline. "
+            "Also call query_recent_cycle_performance to review whether recent agent cycles have "
+            "been succeeding and how severity scores have trended across the last 10 runs. "
+            "Call get_severity_calibration_drift to check whether predicted severities are "
+            "drifting above or below the historical baseline — if the absolute drift exceeds 0.15, "
+            "explicitly recommend a corrective adjustment in your output. "
+            "Return the weighted baseline severity, confidence, record count, drift, and a "
+            "concise adjustment recommendation. Do not replace measured exposure or inventory facts."
         ),
-        tools=[query_calibration_baseline],
+        tools=[query_calibration_baseline, query_recent_cycle_performance, get_severity_calibration_drift],
         output_key="calibration_analysis",
         generate_content_config={"temperature": 0.1},
         **_callbacks(),

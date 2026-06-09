@@ -405,7 +405,13 @@ export default function AlertsScreen({ businessId }) {
                   textAlign: "center",
                 }}
               >
-                <div style={{ fontSize: 40, marginBottom: 16 }}>🔔</div>
+                <div style={{ marginBottom: 16, display: "flex", justifyContent: "center" }}>
+                  <svg width="40" height="40" viewBox="0 0 24 24" fill="none"
+                    stroke="var(--text-muted)" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
+                    <path d="M18 8a6 6 0 0 0-12 0c0 7-3 9-3 9h18s-3-2-3-9" />
+                    <path d="M13.73 21a2 2 0 0 1-3.46 0" />
+                  </svg>
+                </div>
                 <div
                   style={{
                     fontSize: 18,

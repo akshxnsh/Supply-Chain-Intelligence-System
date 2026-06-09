@@ -11,8 +11,10 @@ from src.ingestion.bq_client import (
     query_inventory,
     query_pending_orders,
     query_port_status,
+    query_recent_cycle_performance as _bq_query_recent_cycle_performance,
     query_recent_events,
     query_recent_weather_alerts,
+    query_severity_drift as _bq_query_severity_drift,
     query_supplier_reviews,
     query_supplier_timetable,
     query_tariff_updates,
@@ -262,6 +264,18 @@ async def query_calibration_baseline(event_type: str, region: str) -> str:
         days_lookback=180,
     )
     return json.dumps(baseline, default=str)
+
+
+async def query_recent_cycle_performance(business_id: str) -> str:
+    """Return recent agent cycle success rate, avg latency, severity trend, and alert rate from Phoenix traces stored in BigQuery."""
+    result = await asyncio.to_thread(_bq_query_recent_cycle_performance, business_id, 10)
+    return json.dumps(result, default=str)
+
+
+async def get_severity_calibration_drift(business_id: str) -> str:
+    """Return the delta between the agent's recent predicted severity scores and the historical weighted baseline. A drift > 0.15 suggests the agent is over- or under-estimating risk."""
+    result = await asyncio.to_thread(_bq_query_severity_drift, business_id, 30)
+    return json.dumps(result, default=str)
 
 
 async def detect_black_swan(

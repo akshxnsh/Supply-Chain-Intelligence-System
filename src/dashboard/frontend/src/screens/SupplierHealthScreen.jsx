@@ -1,5 +1,54 @@
 import { useState, useEffect } from "react";
 
+function IconBuilding({ size = 20, color = "currentColor" }) {
+  return (
+    <svg width={size} height={size} viewBox="0 0 24 24" fill="none"
+      stroke={color} strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round">
+      <rect x="3" y="3" width="18" height="18" rx="2" />
+      <path d="M3 9h18" />
+      <path d="M9 21V9" />
+    </svg>
+  )
+}
+
+function IconDollar({ size = 20, color = "currentColor" }) {
+  return (
+    <svg width={size} height={size} viewBox="0 0 24 24" fill="none"
+      stroke={color} strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round">
+      <line x1="12" y1="1" x2="12" y2="23" />
+      <path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6" />
+    </svg>
+  )
+}
+
+function IconGlobe({ size = 20, color = "currentColor" }) {
+  return (
+    <svg width={size} height={size} viewBox="0 0 24 24" fill="none"
+      stroke={color} strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round">
+      <circle cx="12" cy="12" r="10" />
+      <line x1="2" y1="12" x2="22" y2="12" />
+      <path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z" />
+    </svg>
+  )
+}
+
+function IconAlertTriangle({ size = 11, color = "#f97316" }) {
+  return (
+    <svg width={size} height={size} viewBox="0 0 24 24" fill="none"
+      stroke={color} strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
+      <path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z" />
+      <line x1="12" y1="9" x2="12" y2="13" />
+      <line x1="12" y1="17" x2="12.01" y2="17" />
+    </svg>
+  )
+}
+
+const CARD_ICONS = {
+  "Total Suppliers":    <IconBuilding size={20} color="#3b82f6" />,
+  "Total Annual Spend": <IconDollar   size={20} color="#22c55e" />,
+  "Countries":          <IconGlobe    size={20} color="#a855f7" />,
+}
+
 const CATEGORY_COLORS = {
   auto_parts: "#3b82f6",
   fasteners: "#22c55e",
@@ -102,7 +151,6 @@ export default function SupplierHealthScreen({ businessId }) {
 
   return (
     <div style={{
-      marginLeft: "var(--sidebar-width)",
       minHeight: "100vh",
       background: "var(--bg-primary)",
       padding: "40px 32px",
@@ -133,9 +181,9 @@ export default function SupplierHealthScreen({ businessId }) {
         {/* Summary Cards */}
         <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 16, marginBottom: 28 }}>
           {[
-            { label: "Total Suppliers", value: suppliers.length, icon: "🏭" },
-            { label: "Total Annual Spend", value: formatSpend(totalSpend), icon: "💰" },
-            { label: "Countries", value: uniqueCountries, icon: "🌐" },
+            { label: "Total Suppliers",    value: suppliers.length      },
+            { label: "Total Annual Spend", value: formatSpend(totalSpend) },
+            { label: "Countries",          value: uniqueCountries         },
           ].map((card, i) => (
             <SummaryCard key={i} {...card} />
           ))}
@@ -174,7 +222,7 @@ export default function SupplierHealthScreen({ businessId }) {
           {/* Table Header */}
           <div style={{
             display: "grid",
-            gridTemplateColumns: "2fr 1.2fr 1fr 1.6fr 100px",
+            gridTemplateColumns: "1.8fr 1.2fr 0.9fr 2fr 140px",
             padding: "12px 20px",
             borderBottom: "1px solid var(--border)",
             background: "#0d1424",
@@ -217,7 +265,7 @@ export default function SupplierHealthScreen({ businessId }) {
                 onMouseLeave={() => setHoveredRow(null)}
                 style={{
                   display: "grid",
-                  gridTemplateColumns: "2fr 1.2fr 1fr 1.6fr 100px",
+                  gridTemplateColumns: "1.8fr 1.2fr 0.9fr 2fr 140px",
                   alignItems: "center",
                   padding: "14px 20px",
                   borderBottom: i < filtered.length - 1 ? "1px solid var(--border)" : "none",
@@ -270,27 +318,31 @@ export default function SupplierHealthScreen({ businessId }) {
                 </div>
 
                 {/* Health Badge */}
-                <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
+                <div style={{ display: "flex", flexDirection: "column", gap: 5, alignItems: "flex-start" }}>
                   <span style={{
                     display: "inline-block",
                     background: badge.bg,
                     color: badge.color,
                     border: `1px solid ${badge.color}44`,
-                    borderRadius: 20, padding: "3px 10px",
+                    borderRadius: 20, padding: "3px 12px",
                     fontSize: 12, fontWeight: 600,
+                    whiteSpace: "nowrap",
                   }}>
                     {badge.label}
                   </span>
                   {s.other_suppliers_count === 0 && (
                     <span style={{
-                      display: "inline-block",
+                      display: "inline-flex",
+                      alignItems: "center",
+                      gap: 4,
                       background: "#1f0505",
                       color: "#f97316",
                       border: "1px solid #f9731644",
-                      borderRadius: 20, padding: "2px 8px",
-                      fontSize: 10, fontWeight: 600,
+                      borderRadius: 20, padding: "3px 10px",
+                      fontSize: 11, fontWeight: 600,
+                      whiteSpace: "nowrap",
                     }}>
-                      ⚠ Single Source
+                      <IconAlertTriangle size={11} color="#f97316" /> Single Source
                     </span>
                   )}
                 </div>
@@ -336,7 +388,7 @@ export default function SupplierHealthScreen({ businessId }) {
   );
 }
 
-function SummaryCard({ label, value, icon }) {
+function SummaryCard({ label, value }) {
   const [hovered, setHovered] = useState(false);
   return (
     <div
@@ -359,7 +411,15 @@ function SummaryCard({ label, value, icon }) {
             {value}
           </div>
         </div>
-        <div style={{ fontSize: 24, opacity: 0.8 }}>{icon}</div>
+        <div style={{
+          width: 36, height: 36, borderRadius: 8,
+          background: "var(--bg-primary)",
+          border: "1px solid var(--border)",
+          display: "flex", alignItems: "center", justifyContent: "center",
+          flexShrink: 0,
+        }}>
+          {CARD_ICONS[label]}
+        </div>
       </div>
     </div>
   );

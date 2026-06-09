@@ -1,10 +1,13 @@
 import json
+import logging
 
 from src.ingestion.bq_client import (
     query_inventory,
     query_pending_orders,
     query_shipments_at_risk,
 )
+
+_log = logging.getLogger(__name__)
 
 
 def calculate_impact(
@@ -56,9 +59,17 @@ def calculate_impact(
             + order.get("order_value_usd", 0)
         )
 
+    # H3: log when inventory data is missing so the 1.5× worst-case is visible
+    inventory_rows = query_inventory(business_id)
+    if not inventory_rows:
+        _log.warning(
+            "[EXPOSURE] query_inventory() returned no data for business_id=%s — "
+            "worst-case 1.5× multiplier will apply to all categories. Exposure may be inflated.",
+            business_id,
+        )
     inventory_map = {
         row["product_category"]: row["inventory_value_usd"]
-        for row in query_inventory(business_id)
+        for row in inventory_rows
     }
 
     inventory_covers = True
@@ -108,6 +119,7 @@ def calculate_impact(
         "inventory_coverage_usd": round(total_inventory_coverage, 2),
         "uncovered_demand_usd": round(total_uncovered_demand, 2),
         "inventory_covers": inventory_covers,
+        "inventory_data_missing": not inventory_rows,
         "severity_adjustment": severity_adjustment,
         "expected_loss_usd": round(expected_loss_usd, 2),
         "tariff_cost_included_usd": round(tariff_cost_impact_usd, 2),
