@@ -69,8 +69,14 @@ export default function OverviewScreen() {
     <div style={{ maxWidth: 960, margin: "0 auto", padding: "40px 32px" }}>
       {/* Header */}
       <div style={{ marginBottom: 32 }}>
-        <h1 style={{ fontSize: 24, fontWeight: 700, color: "var(--text-primary)", margin: 0 }}>
-          🌐 Overview
+        <h1 style={{ fontSize: 24, fontWeight: 700, color: "var(--text-primary)", margin: 0, display: "flex", alignItems: "center", gap: 10 }}>
+          <svg width="22" height="22" viewBox="0 0 24 24" fill="none"
+            stroke="var(--accent-blue)" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+            <circle cx="12" cy="12" r="10" />
+            <line x1="2" y1="12" x2="22" y2="12" />
+            <path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z" />
+          </svg>
+          Overview
         </h1>
         <p style={{ fontSize: 14, color: "var(--text-secondary)", marginTop: 6 }}>
           Active disruption alerts across all registered businesses
@@ -116,7 +122,13 @@ export default function OverviewScreen() {
           background: "var(--bg-card)", border: "1px solid var(--border)",
           borderRadius: 12, padding: "60px 32px", textAlign: "center",
         }}>
-          <div style={{ fontSize: 36, marginBottom: 12 }}>✅</div>
+          <div style={{ marginBottom: 12, display: "flex", justifyContent: "center" }}>
+            <svg width="36" height="36" viewBox="0 0 24 24" fill="none"
+              stroke="#22c55e" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+              <path d="M22 11.08V12a10 10 0 1 1-5.93-9.14" />
+              <polyline points="22 4 12 14.01 9 11.01" />
+            </svg>
+          </div>
           <div style={{ fontSize: 16, fontWeight: 600, color: "var(--text-primary)" }}>
             No active alerts across any business
           </div>

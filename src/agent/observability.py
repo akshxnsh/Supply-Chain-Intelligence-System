@@ -29,14 +29,22 @@ def configure_phoenix():
     if not api_key:
         return None
 
-    from phoenix.otel import register
+    try:
+        from phoenix.otel import register
+    except Exception as exc:
+        emit_log(f"Phoenix tracing disabled: {exc}")
+        return None
 
-    _tracer_provider = register(
-        project_name=os.getenv("PHOENIX_PROJECT_NAME", "supply-chain-agent"),
-        endpoint=endpoint,
-        headers={"Authorization": f"Bearer {api_key}"},
-        auto_instrument=True,
-    )
+    try:
+        _tracer_provider = register(
+            project_name=os.getenv("PHOENIX_PROJECT_NAME", "supply-chain-agent"),
+            endpoint=endpoint,
+            headers={"Authorization": f"Bearer {api_key}"},
+            auto_instrument=True,
+        )
+    except Exception as exc:
+        emit_log(f"Phoenix tracing disabled: {exc}")
+        _tracer_provider = None
     return _tracer_provider
 
 

@@ -2,7 +2,7 @@ from fastapi import FastAPI, HTTPException, Query
 from fastapi.responses import StreamingResponse
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
-import sys, os, json
+import sys, os, json, threading
 sys.path.insert(0, os.path.dirname(os.path.dirname(
     os.path.dirname(os.path.abspath(__file__)))))
 
@@ -271,7 +271,7 @@ class ApproveActionRequest(BaseModel):
 @app.post("/api/approve-action")
 def approve_action(req: ApproveActionRequest, business_id: str = Query(default=DEFAULT_BIZ)):
     from datetime import datetime, timezone
-    from src.ingestion.bq_client import save_calibration_approval
+    from src.ingestion.bq_client import save_calibration_approval, update_calibration_outcomes
     approved_at = datetime.now(timezone.utc).isoformat()
     try:
         save_calibration_approval(
@@ -281,6 +281,18 @@ def approve_action(req: ApproveActionRequest, business_id: str = Query(default=D
         )
     except Exception as e:
         print(f"[APPROVAL] Warning: could not persist to BigQuery: {e}")
+
+    # Run outcome calibration in the background so the response returns immediately.
+    # update_calibration_outcomes() processes all approved records that are 30+ days
+    # old — it is idempotent and safe to call after every approval.
+    def _run_calibration():
+        try:
+            update_calibration_outcomes()
+        except Exception as exc:
+            print(f"[CALIBRATION] Background outcome update failed: {exc}")
+
+    threading.Thread(target=_run_calibration, daemon=True).start()
+
     return {
         "success": True,
         "approved_at": approved_at,
