@@ -3,4 +3,5 @@
 __pycache__/
 *.pyc
 gcp-key.json
+google-credentials.json
 *.json
