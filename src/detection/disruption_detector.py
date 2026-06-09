@@ -30,7 +30,7 @@ def detect_disruptions(business_id: str = "demo-business-001") -> str:
     # ── Fetch all signal sources ──────────────────────────────────────────────
     disruptions = query_recent_events(hours=24)  # News + events
     business_supp = query_business_suppliers(business_id=business_id)
-    weather_alerts = query_recent_weather_alerts(hours=48)  # Weather warnings
+    weather_alerts = query_recent_weather_alerts(hours_back=48)  # Weather warnings
     tariffs = query_tariff_updates(days_back=30)  # New tariffs
 
     # Load active shipments up front: needed both for location-based checks and to

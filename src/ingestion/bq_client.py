@@ -524,6 +524,96 @@ def acknowledge_alert(alert_id: str):
     ])
     client.query(sql, job_config=job_config).result()
 
+def save_phoenix_trace_summary(row: dict) -> None:
+    """Write one cycle trace summary row to the phoenix_traces BQ table."""
+    table_ref = f"{PROJECT_ID}.{DATASET}.phoenix_traces"
+    errors = client.insert_rows_json(table_ref, [row])
+    if errors:
+        raise RuntimeError(f"save_phoenix_trace_summary: BigQuery insert failed — {errors}")
+
+
+def query_recent_cycle_performance(business_id: str, limit: int = 10) -> dict:
+    """Return aggregate metrics for the last N agent cycles from phoenix_traces."""
+    sql = f"""
+        SELECT
+          JSON_VALUE(output_json, '$.success')        AS success,
+          CAST(JSON_VALUE(output_json, '$.severity_score') AS FLOAT64) AS severity_score,
+          JSON_VALUE(output_json, '$.alert_fired')    AS alert_fired,
+          latency_ms,
+          created_at
+        FROM `{PROJECT_ID}.{DATASET}.phoenix_traces`
+        WHERE span_id = @span_id
+        ORDER BY created_at DESC
+        LIMIT @lim
+    """
+    rows = run_query_safe(sql, [
+        bigquery.ScalarQueryParameter("span_id", "STRING", f"{business_id}-cycle"),
+        bigquery.ScalarQueryParameter("lim", "INT64", limit),
+    ])
+    if not rows:
+        return {
+            "success_rate": None,
+            "avg_latency_ms": None,
+            "avg_severity_score": None,
+            "alert_rate": None,
+            "cycle_count": 0,
+        }
+    successes = [r for r in rows if r.get("success") == "True"]
+    alerts    = [r for r in rows if r.get("alert_fired") == "True"]
+    latencies = [r["latency_ms"] for r in rows if r.get("latency_ms") is not None]
+    scores    = [r["severity_score"] for r in rows if r.get("severity_score") is not None]
+    n = len(rows)
+    return {
+        "success_rate":       round(len(successes) / n, 3),
+        "avg_latency_ms":     round(sum(latencies) / len(latencies), 1) if latencies else None,
+        "avg_severity_score": round(sum(scores) / len(scores), 3) if scores else None,
+        "alert_rate":         round(len(alerts) / n, 3),
+        "cycle_count":        n,
+    }
+
+
+def query_severity_drift(business_id: str, lookback_days: int = 30) -> dict:
+    """Compare recent predicted severity vs historical weighted baseline in agent_calibration."""
+    sql = f"""
+        SELECT
+          AVG(severity_scored)    AS avg_predicted,
+          AVG(weighted_baseline)  AS avg_baseline,
+          AVG(hallucination_score) AS avg_hallucination,
+          AVG(reasoning_score)    AS avg_reasoning,
+          COUNT(*)                AS record_count
+        FROM `{PROJECT_ID}.{DATASET}.agent_calibration`
+        WHERE region = @business_id
+          AND created_at >= TIMESTAMP_SUB(CURRENT_TIMESTAMP(), INTERVAL @days DAY)
+          AND severity_scored IS NOT NULL
+          AND weighted_baseline IS NOT NULL
+    """
+    rows = run_query_safe(sql, [
+        bigquery.ScalarQueryParameter("business_id", "STRING", business_id),
+        bigquery.ScalarQueryParameter("days", "INT64", lookback_days),
+    ])
+    if not rows or not rows[0].get("record_count"):
+        return {
+            "avg_predicted_severity": None,
+            "avg_baseline_severity":  None,
+            "drift":                  None,
+            "avg_accuracy":           None,
+            "record_count":           0,
+        }
+    r = rows[0]
+    predicted  = r.get("avg_predicted") or 0.0
+    baseline   = r.get("avg_baseline") or 0.0
+    hall_score = r.get("avg_hallucination") or 0.0
+    reas_score = r.get("avg_reasoning") or 0.0
+    avg_acc    = round((1 - hall_score) * 0.5 + reas_score * 0.5, 3)
+    return {
+        "avg_predicted_severity": round(predicted, 3),
+        "avg_baseline_severity":  round(baseline, 3),
+        "drift":                  round(predicted - baseline, 3),
+        "avg_accuracy":           avg_acc,
+        "record_count":           int(r.get("record_count") or 0),
+    }
+
+
 def check_duplicate_alert(business_id: str, disruption_id: str, hours: int = 24) -> bool:
     """Return True if an alert for this disruption was already fired within `hours`."""
     rows = run_query_safe(f"""
