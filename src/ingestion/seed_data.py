@@ -10,7 +10,11 @@ load_dotenv()
 PROJECT_ID = "akshxnsh-supplychain"
 DATASET = "supply_chain"
 
-def load_rows(table_id: str, rows: list[dict]):
+def load_rows(
+    table_id: str,
+    rows: list[dict],
+    write_disposition=bigquery.WriteDisposition.WRITE_TRUNCATE,
+):
     """Load rows via CSV — works in BigQuery Sandbox (no streaming needed)."""
     table_ref = f"{PROJECT_ID}.{DATASET}.{table_id}"
 
@@ -26,7 +30,7 @@ def load_rows(table_id: str, rows: list[dict]):
     job_config = bigquery.LoadJobConfig(
         source_format=bigquery.SourceFormat.CSV,
         skip_leading_rows=1,
-        write_disposition=bigquery.WriteDisposition.WRITE_TRUNCATE,
+        write_disposition=write_disposition,
         autodetect=True,
     )
 
@@ -84,9 +88,6 @@ def seed_shipment_timetable():
         # demo-business-001: fasteners from US and Korea
         {"id": "shp-007", "business_id": "demo-business-001", "supplier_id": "sup-006", "product_category": "fasteners",         "quantity": 7000, "shipment_value_usd": 8400,  "origin_port": "Port of Houston",        "destination_port": "Port of Baltimore", "dispatched_date": (today - timedelta(days=1)).strftime("%Y-%m-%d"), "expected_arrival_date": (today + timedelta(days=7)).strftime("%Y-%m-%d"),  "status": "in_transit"},
         {"id": "shp-008", "business_id": "demo-business-001", "supplier_id": "sup-007", "product_category": "fasteners",         "quantity": 5565, "shipment_value_usd": 6200,  "origin_port": "Port of Busan",          "destination_port": "Port of Baltimore", "dispatched_date": (today - timedelta(days=3)).strftime("%Y-%m-%d"), "expected_arrival_date": (today + timedelta(days=9)).strftime("%Y-%m-%d"),  "status": "in_transit"},
-        # demo-business-002: semiconductors and displays from Asia
-        {"id": "shp-009", "business_id": "demo-business-002", "supplier_id": "sup-009", "product_category": "semiconductors",    "quantity": 1000, "shipment_value_usd": 85000, "origin_port": "Port of Kaohsiung",      "destination_port": "Port of Los Angeles", "dispatched_date": (today - timedelta(days=10)).strftime("%Y-%m-%d"), "expected_arrival_date": (today + timedelta(days=12)).strftime("%Y-%m-%d"), "status": "in_transit"},
-        {"id": "shp-010", "business_id": "demo-business-002", "supplier_id": "sup-011", "product_category": "display_panels",    "quantity": 300,  "shipment_value_usd": 45000, "origin_port": "Port of Ho Chi Minh",    "destination_port": "Port of Los Angeles", "dispatched_date": (today - timedelta(days=7)).strftime("%Y-%m-%d"),  "expected_arrival_date": (today + timedelta(days=15)).strftime("%Y-%m-%d"), "status": "in_transit"},
     ]
     load_rows("shipment_timetable", rows)
 
@@ -431,23 +432,46 @@ def seed_business_002():
         {"id": "b2-sup-005", "business_id": "demo-business-002", "supplier_name": "Japan Display Inc",          "country": "Japan",       "product_category": "displays",         "annual_spend_usd": 95000},
         {"id": "b2-sup-006", "business_id": "demo-business-002", "supplier_name": "Murata Manufacturing",       "country": "Japan",       "product_category": "semiconductors",   "annual_spend_usd": 72000},
     ]
-    load_rows("business_suppliers", suppliers)
+    load_rows(
+        "business_suppliers",
+        suppliers,
+        write_disposition=bigquery.WriteDisposition.WRITE_APPEND,
+    )
 
     orders = [
-        {"id": "b2-ord-001", "business_id": "demo-business-002", "supplier_id": "b2-sup-001", "order_value_usd": 82000, "quantity": 20000, "primary_unit_price_usd": 4.10, "eta_date": d(5),  "status": "pending"},
-        {"id": "b2-ord-002", "business_id": "demo-business-002", "supplier_id": "b2-sup-001", "order_value_usd": 61500, "quantity": 15000, "primary_unit_price_usd": 4.10, "eta_date": d(9),  "status": "pending"},
-        {"id": "b2-ord-003", "business_id": "demo-business-002", "supplier_id": "b2-sup-002", "order_value_usd": 47000, "quantity": 10000, "primary_unit_price_usd": 4.70, "eta_date": d(7),  "status": "pending"},
-        {"id": "b2-ord-004", "business_id": "demo-business-002", "supplier_id": "b2-sup-003", "order_value_usd": 28000, "quantity": 2000,  "primary_unit_price_usd": 14.00,"eta_date": d(12), "status": "pending"},
-        {"id": "b2-ord-005", "business_id": "demo-business-002", "supplier_id": "b2-sup-004", "order_value_usd": 35000, "quantity": 500,   "primary_unit_price_usd": 70.00,"eta_date": d(14), "status": "pending"},
+        {"id": "b2-client-001", "business_id": "demo-business-002", "client_id": "client-orion", "product_category": "semiconductors", "quantity": 20000, "order_value_usd": 82000, "required_by_date": d(5),  "status": "pending"},
+        {"id": "b2-client-002", "business_id": "demo-business-002", "client_id": "client-vega",  "product_category": "semiconductors", "quantity": 15000, "order_value_usd": 61500, "required_by_date": d(9),  "status": "pending"},
+        {"id": "b2-client-003", "business_id": "demo-business-002", "client_id": "client-lyra",  "product_category": "circuit_boards", "quantity": 2000,  "order_value_usd": 28000, "required_by_date": d(12), "status": "pending"},
+        {"id": "b2-client-004", "business_id": "demo-business-002", "client_id": "client-nova",  "product_category": "displays",       "quantity": 500,   "order_value_usd": 35000, "required_by_date": d(14), "status": "pending"},
     ]
-    load_rows("pending_orders", orders)
+    load_rows(
+        "pending_orders",
+        orders,
+        write_disposition=bigquery.WriteDisposition.WRITE_APPEND,
+    )
+
+    shipments = [
+        {"id": "b2-shp-001", "business_id": "demo-business-002", "supplier_id": "b2-sup-001", "product_category": "semiconductors", "quantity": 20000, "shipment_value_usd": 82000, "origin_port": "Port of Kaohsiung",   "destination_port": "Port of Los Angeles", "dispatched_date": (today - timedelta(days=10)).strftime("%Y-%m-%d"), "expected_arrival_date": d(5),  "status": "in_transit"},
+        {"id": "b2-shp-002", "business_id": "demo-business-002", "supplier_id": "b2-sup-001", "product_category": "semiconductors", "quantity": 15000, "shipment_value_usd": 61500, "origin_port": "Port of Kaohsiung",   "destination_port": "Port of Los Angeles", "dispatched_date": (today - timedelta(days=8)).strftime("%Y-%m-%d"),  "expected_arrival_date": d(9),  "status": "in_transit"},
+        {"id": "b2-shp-003", "business_id": "demo-business-002", "supplier_id": "b2-sup-003", "product_category": "circuit_boards", "quantity": 2000,  "shipment_value_usd": 28000, "origin_port": "Port of Kaohsiung",   "destination_port": "Port of Los Angeles", "dispatched_date": (today - timedelta(days=7)).strftime("%Y-%m-%d"),  "expected_arrival_date": d(12), "status": "in_transit"},
+        {"id": "b2-shp-004", "business_id": "demo-business-002", "supplier_id": "b2-sup-004", "product_category": "displays",       "quantity": 500,   "shipment_value_usd": 35000, "origin_port": "Port of Busan",       "destination_port": "Port of Los Angeles", "dispatched_date": (today - timedelta(days=6)).strftime("%Y-%m-%d"),  "expected_arrival_date": d(14), "status": "in_transit"},
+    ]
+    load_rows(
+        "shipment_timetable",
+        shipments,
+        write_disposition=bigquery.WriteDisposition.WRITE_APPEND,
+    )
 
     inv = [
         {"id": "b2-inv-001", "business_id": "demo-business-002", "product_category": "semiconductors", "inventory_value_usd": 22000.0, "updated_at": now},
         {"id": "b2-inv-002", "business_id": "demo-business-002", "product_category": "circuit_boards", "inventory_value_usd": 8000.0,  "updated_at": now},
         {"id": "b2-inv-003", "business_id": "demo-business-002", "product_category": "displays",       "inventory_value_usd": 12000.0, "updated_at": now},
     ]
-    load_rows("inventory", inv)
+    load_rows(
+        "inventory",
+        inv,
+        write_disposition=bigquery.WriteDisposition.WRITE_APPEND,
+    )
 
     print("✅ demo-business-002 (Pacific Rim Electronics Supply Co.) seeded")
 
@@ -456,6 +480,7 @@ def seed_all():
     print("🌱 Seeding BigQuery tables...\n")
     seed_business_suppliers()
     seed_pending_orders()
+    seed_shipment_timetable()
     seed_alternative_suppliers()
     seed_port_activity()
     seed_disruption_events()

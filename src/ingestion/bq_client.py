@@ -372,6 +372,7 @@ def query_supplier_timetable(business_id: str) -> list[dict]:
     sql = f"""
         SELECT
             st.id AS shipment_id,
+            st.supplier_id,
             bs.supplier_name,
             bs.country,
             st.product_category,
@@ -379,7 +380,10 @@ def query_supplier_timetable(business_id: str) -> list[dict]:
             st.quantity,
             st.origin_port,
             st.destination_port,
+            CAST(st.dispatched_date AS STRING) AS dispatched_date,
             CAST(st.expected_arrival_date AS STRING) AS eta_date,
+            CAST(st.dispatched_date AS STRING) AS dispatch_timestamp,
+            CAST(st.expected_arrival_date AS STRING) AS estimated_arrival,
             st.status
         FROM `{PROJECT_ID}.{DATASET}.shipment_timetable` st
         JOIN `{PROJECT_ID}.{DATASET}.business_suppliers` bs

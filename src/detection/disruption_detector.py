@@ -1,4 +1,4 @@
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 import json
 from typing import Dict, Any
 from src.ingestion.bq_client import (
@@ -7,7 +7,6 @@ from src.ingestion.bq_client import (
     query_recent_weather_alerts,
     query_port_status,
     query_tariff_updates,
-    query_pending_orders,
 )
 
 def detect_disruptions(business_id: str = "demo-business-001") -> str:
@@ -122,7 +121,7 @@ def detect_disruptions(business_id: str = "demo-business-001") -> str:
     # Prepare a dict to accumulate signals per supplier
     supplier_signals: Dict[str, Dict[str, Any]] = {}
 
-    now = datetime.utcnow()
+    now = datetime.now(timezone.utc)
 
     # ---------------------------------------------------------------------
     # 1. Process each active shipment for weather/port/news signals
@@ -189,11 +188,11 @@ def detect_disruptions(business_id: str = "demo-business-001") -> str:
     # ---------------------------------------------------------------------
     # 3. Tariff impact
     # ---------------------------------------------------------------------
-    # Fetch all pending orders once and group by supplier to avoid an N+1 query
-    # loop (previously one query per tariff-matched supplier).
-    pending_by_supplier: Dict[str, list] = {}
-    for order in query_pending_orders(business_id):
-        pending_by_supplier.setdefault(order.get("supplier_id"), []).append(order)
+    # Tariffs affect supplier-side supply cost. Use inbound shipments, not
+    # pending client orders, because pending_orders is demand-side data.
+    shipments_by_supplier: Dict[str, list] = {}
+    for shipment in shipments:
+        shipments_by_supplier.setdefault(shipment.get("supplier_id"), []).append(shipment)
 
     for supp in business_supp:
         supp_id = supp.get("id")
@@ -213,14 +212,13 @@ def detect_disruptions(business_id: str = "demo-business-001") -> str:
             tariff_info = affected_by_tariff[tariff_key]
             entry["signals"].add("tariff_update")
             tariff_rate = tariff_info["tariff_rate"]
-            pending = pending_by_supplier.get(supp_id, [])
             cost_impact = 0.0
-            for order in pending:
-                order_value = order.get("order_value_usd", 0)
-                cost_impact += order_value * (tariff_rate / 100)
+            for shipment in shipments_by_supplier.get(supp_id, []):
+                shipment_value = shipment.get("shipment_value_usd", 0)
+                cost_impact += shipment_value * (tariff_rate / 100)
             entry["tariff_cost_impact_usd"] = round(cost_impact, 2)
             entry["signal_details"].append(
-                f"Tariff +{tariff_rate}% effective {tariff_info['effective_date']} (est. +${cost_impact:.2f} cost)"
+                f"Tariff +{tariff_rate}% effective {tariff_info['effective_date']} (est. +${cost_impact:.2f} inbound shipment cost)"
             )
 
     # ---------------------------------------------------------------------
