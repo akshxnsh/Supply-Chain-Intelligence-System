@@ -34,7 +34,7 @@ Configuration files live under `config/`.
 
 ### Detection
 
-`src/detection/disruption_detector.py` reads recent disruption events, weather alerts, port activity, tariffs, business suppliers, and active inbound shipments. It returns affected suppliers with signal details and tariff cost impact calculated against inbound shipment value.
+`src/detection/disruption_detector.py` reads recent disruption events, weather alerts, port activity, tariffs, business suppliers, and active inbound shipments. It uses seeded shipment `route`, `etd`, `eta`, and `journey_time_hours` fields to estimate the current route checkpoint and suppress alerts for checkpoints already passed. It returns affected suppliers with signal details and tariff cost impact calculated against inbound shipment value.
 
 ### Exposure
 
