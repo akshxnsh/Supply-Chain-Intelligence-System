@@ -7,7 +7,7 @@ from dotenv import load_dotenv
 
 load_dotenv()
 
-PROJECT_ID = "akshxnsh-supplychain"
+PROJECT_ID = os.getenv("GOOGLE_CLOUD_PROJECT", "akshxnsh-supplychain")
 DATASET = "supply_chain"
 
 KEY_FILE = os.getenv(
@@ -77,12 +77,13 @@ def query_business_suppliers(business_id: str) -> list[dict]:
     ])
 
 def query_pending_orders(business_id: str) -> list[dict]:
+    """Return pending client orders (demand side) for a business."""
     sql = f"""
-        SELECT id, supplier_id, order_value_usd,
-               CAST(eta_date AS STRING) as eta_date, status
+        SELECT id, client_id, product_category, quantity, order_value_usd,
+               CAST(required_by_date AS STRING) as required_by_date, status
         FROM `{PROJECT_ID}.{DATASET}.pending_orders`
         WHERE business_id = @business_id
-        AND status = 'pending'
+          AND status = 'pending'
     """
     return run_query_safe(sql, [
         bigquery.ScalarQueryParameter("business_id", "STRING", business_id),
@@ -195,42 +196,31 @@ def query_calibration_with_recency(event_type: str, region: str, days_lookback: 
         "days_weighted_avg": round(weighted_days_avg, 1)
     }
 
-def query_pending_orders_at_risk(business_id: str, disruption_date: str, window_days: int = 30) -> list[dict]:
-    """
-    Fetch pending orders with eta_date within window days of disruption.
-    Only orders that would be affected by disruption count as at-risk.
-    """
+def query_shipments_at_risk(
+    business_id: str,
+    supplier_ids: list[str],
+    window_days: int = 30,
+) -> list[dict]:
+    """Return inbound shipments from affected suppliers arriving within window_days."""
+    if not supplier_ids:
+        return []
     sql = f"""
-        SELECT id, supplier_id, order_value_usd,
-               CAST(eta_date AS STRING) as eta_date, status
-        FROM `{PROJECT_ID}.{DATASET}.pending_orders`
+        SELECT id, supplier_id, product_category, quantity, shipment_value_usd,
+               CAST(expected_arrival_date AS STRING) as expected_arrival_date,
+               origin_port, destination_port, status
+        FROM `{PROJECT_ID}.{DATASET}.shipment_timetable`
         WHERE business_id = @business_id
-        AND status = 'pending'
-        AND eta_date >= CAST(@disruption_date AS DATE)
-        AND eta_date <= DATE_ADD(CAST(@disruption_date AS DATE), INTERVAL @window_days DAY)
-        ORDER BY eta_date ASC
+          AND supplier_id IN UNNEST(@supplier_ids)
+          AND status = 'in_transit'
+          AND expected_arrival_date <= DATE_ADD(CURRENT_DATE(), INTERVAL @window_days DAY)
+        ORDER BY expected_arrival_date ASC
     """
     return run_query_safe(sql, [
-        bigquery.ScalarQueryParameter("business_id",     "STRING", business_id),
-        bigquery.ScalarQueryParameter("disruption_date", "STRING", disruption_date),
-        bigquery.ScalarQueryParameter("window_days",     "INT64",  window_days),
+        bigquery.ScalarQueryParameter("business_id",  "STRING", business_id),
+        bigquery.ArrayQueryParameter("supplier_ids",  "STRING", supplier_ids),
+        bigquery.ScalarQueryParameter("window_days",  "INT64",  window_days),
     ])
 
-def query_pending_orders_by_supplier(business_id: str, supplier_id: str) -> list[dict]:
-    """Get all pending orders from specific supplier."""
-    sql = f"""
-        SELECT id, order_value_usd,
-               CAST(eta_date AS STRING) as eta_date, status
-        FROM `{PROJECT_ID}.{DATASET}.pending_orders`
-        WHERE business_id = @business_id
-        AND supplier_id = @supplier_id
-        AND status = 'pending'
-        ORDER BY eta_date ASC
-    """
-    return run_query_safe(sql, [
-        bigquery.ScalarQueryParameter("business_id", "STRING", business_id),
-        bigquery.ScalarQueryParameter("supplier_id", "STRING", supplier_id),
-    ])
 
 def query_business_suppliers_by_country(business_id: str, country: str) -> list[dict]:
     """Get all suppliers from business operating in specific country."""
@@ -378,36 +368,25 @@ def query_supplier_reviews_by_suppliers(supplier_ids: list) -> dict:
     return grouped
 
 def query_supplier_timetable(business_id: str) -> list[dict]:
-    """Return active shipments for a business with derived origin/destination ports."""
+    """Return active inbound shipments for a business from the shipment_timetable."""
     sql = f"""
         SELECT
-            po.id AS shipment_id,
+            st.id AS shipment_id,
             bs.supplier_name,
             bs.country,
-            bs.product_category,
-            po.order_value_usd,
-            po.quantity,
-            CAST(po.eta_date AS STRING) AS eta_date,
-            CASE bs.country
-                WHEN 'China'       THEN 'Port of Shanghai'
-                WHEN 'South Korea' THEN 'Port of Busan'
-                WHEN 'Vietnam'     THEN 'Port of Ho Chi Minh'
-                WHEN 'Japan'       THEN 'Port of Tokyo'
-                WHEN 'India'       THEN 'Port of Mumbai'
-                WHEN 'Taiwan'      THEN 'Port of Kaohsiung'
-                WHEN 'Mexico'      THEN 'Port of Manzanillo'
-                ELSE 'Domestic'
-            END AS origin_port,
-            CASE po.business_id
-                WHEN 'demo-business-001' THEN 'Port of Baltimore'
-                WHEN 'demo-business-002' THEN 'Port of Los Angeles'
-                ELSE 'Port of Houston'
-            END AS destination_port
-        FROM `{PROJECT_ID}.{DATASET}.pending_orders` po
+            st.product_category,
+            st.shipment_value_usd,
+            st.quantity,
+            st.origin_port,
+            st.destination_port,
+            CAST(st.expected_arrival_date AS STRING) AS eta_date,
+            st.status
+        FROM `{PROJECT_ID}.{DATASET}.shipment_timetable` st
         JOIN `{PROJECT_ID}.{DATASET}.business_suppliers` bs
-          ON po.supplier_id = bs.id
-        WHERE po.business_id = @business_id
-          AND po.status = 'pending'
+          ON st.supplier_id = bs.id
+        WHERE st.business_id = @business_id
+          AND st.status = 'in_transit'
+        ORDER BY st.expected_arrival_date ASC
     """
     return run_query_safe(sql, [
         bigquery.ScalarQueryParameter("business_id", "STRING", business_id),
@@ -543,9 +522,9 @@ def acknowledge_alert(alert_id: str):
 
 def check_duplicate_alert(business_id: str, disruption_id: str, hours: int = 24) -> bool:
     """Return True if an alert for this disruption was already fired within `hours`."""
-    rows = run_query_safe("""
+    rows = run_query_safe(f"""
         SELECT COUNT(*) as cnt
-        FROM `akshxnsh-supplychain.supply_chain.agent_alerts`
+        FROM `{PROJECT_ID}.{DATASET}.agent_alerts`
         WHERE business_id = @business_id
           AND disruption_id = @disruption_id
           AND TIMESTAMP_DIFF(CURRENT_TIMESTAMP(), created_at, HOUR) < @hours

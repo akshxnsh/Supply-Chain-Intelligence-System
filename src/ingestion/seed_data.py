@@ -54,18 +54,41 @@ def seed_business_suppliers():
 
 def seed_pending_orders():
     today = datetime.utcnow()
-    # quantity and primary_unit_price_usd allow exact per-unit cost comparisons vs alternate suppliers
+    # Client orders — what customers have ordered from the business (demand side)
     rows = [
-        {"id": "ord-001", "business_id": "demo-business-001", "supplier_id": "sup-001", "order_value_usd": 28400, "quantity": 5900, "primary_unit_price_usd": 4.81, "eta_date": (today + timedelta(days=4)).strftime("%Y-%m-%d"),  "status": "pending"},
-        {"id": "ord-002", "business_id": "demo-business-001", "supplier_id": "sup-001", "order_value_usd": 15200, "quantity": 3160, "primary_unit_price_usd": 4.81, "eta_date": (today + timedelta(days=6)).strftime("%Y-%m-%d"),  "status": "pending"},
-        {"id": "ord-003", "business_id": "demo-business-001", "supplier_id": "sup-001", "order_value_usd": 9800,  "quantity": 2036, "primary_unit_price_usd": 4.81, "eta_date": (today + timedelta(days=8)).strftime("%Y-%m-%d"),  "status": "pending"},
-        {"id": "ord-004", "business_id": "demo-business-001", "supplier_id": "sup-002", "order_value_usd": 22000, "quantity": 4490, "primary_unit_price_usd": 4.90, "eta_date": (today + timedelta(days=5)).strftime("%Y-%m-%d"),  "status": "pending"},
-        {"id": "ord-005", "business_id": "demo-business-001", "supplier_id": "sup-002", "order_value_usd": 11500, "quantity": 2347, "primary_unit_price_usd": 4.90, "eta_date": (today + timedelta(days=10)).strftime("%Y-%m-%d"), "status": "pending"},
-        {"id": "ord-006", "business_id": "demo-business-001", "supplier_id": "sup-003", "order_value_usd": 18700, "quantity": 4230, "primary_unit_price_usd": 4.42, "eta_date": (today + timedelta(days=14)).strftime("%Y-%m-%d"), "status": "pending"},
-        {"id": "ord-007", "business_id": "demo-business-001", "supplier_id": "sup-006", "order_value_usd": 8400,  "quantity": 7000, "primary_unit_price_usd": 1.20, "eta_date": (today + timedelta(days=7)).strftime("%Y-%m-%d"),  "status": "pending"},
-        {"id": "ord-008", "business_id": "demo-business-001", "supplier_id": "sup-007", "order_value_usd": 6200,  "quantity": 5565, "primary_unit_price_usd": 1.11, "eta_date": (today + timedelta(days=9)).strftime("%Y-%m-%d"),  "status": "pending"},
+        {"id": "co-001", "business_id": "demo-business-001", "client_id": "client-alpha",   "product_category": "roofing_materials", "quantity": 1200, "order_value_usd": 14400, "required_by_date": (today + timedelta(days=10)).strftime("%Y-%m-%d"), "status": "pending"},
+        {"id": "co-002", "business_id": "demo-business-001", "client_id": "client-beta",    "product_category": "roofing_materials", "quantity": 800,  "order_value_usd": 9600,  "required_by_date": (today + timedelta(days=12)).strftime("%Y-%m-%d"), "status": "pending"},
+        {"id": "co-003", "business_id": "demo-business-001", "client_id": "client-gamma",   "product_category": "roofing_materials", "quantity": 600,  "order_value_usd": 7200,  "required_by_date": (today + timedelta(days=15)).strftime("%Y-%m-%d"), "status": "pending"},
+        {"id": "co-004", "business_id": "demo-business-001", "client_id": "client-delta",   "product_category": "roofing_materials", "quantity": 400,  "order_value_usd": 4800,  "required_by_date": (today + timedelta(days=20)).strftime("%Y-%m-%d"), "status": "pending"},
+        {"id": "co-005", "business_id": "demo-business-001", "client_id": "client-epsilon", "product_category": "fasteners",         "quantity": 3000, "order_value_usd": 3600,  "required_by_date": (today + timedelta(days=8)).strftime("%Y-%m-%d"),  "status": "pending"},
+        {"id": "co-006", "business_id": "demo-business-001", "client_id": "client-zeta",    "product_category": "fasteners",         "quantity": 2000, "order_value_usd": 2400,  "required_by_date": (today + timedelta(days=14)).strftime("%Y-%m-%d"), "status": "pending"},
+        {"id": "co-007", "business_id": "demo-business-002", "client_id": "client-eta",     "product_category": "semiconductors",    "quantity": 500,  "order_value_usd": 75000, "required_by_date": (today + timedelta(days=18)).strftime("%Y-%m-%d"), "status": "pending"},
+        {"id": "co-008", "business_id": "demo-business-002", "client_id": "client-theta",   "product_category": "display_panels",    "quantity": 200,  "order_value_usd": 40000, "required_by_date": (today + timedelta(days=22)).strftime("%Y-%m-%d"), "status": "pending"},
     ]
     load_rows("pending_orders", rows)
+
+
+def seed_shipment_timetable():
+    today = datetime.utcnow()
+    # Inbound supplier shipments — what the business has ordered from its suppliers (supply side)
+    rows = [
+        # demo-business-001: roofing materials from US suppliers (domestic, Port of Houston)
+        {"id": "shp-001", "business_id": "demo-business-001", "supplier_id": "sup-001", "product_category": "roofing_materials", "quantity": 5900, "shipment_value_usd": 28400, "origin_port": "Port of Houston",        "destination_port": "Port of Baltimore", "dispatched_date": (today - timedelta(days=2)).strftime("%Y-%m-%d"), "expected_arrival_date": (today + timedelta(days=4)).strftime("%Y-%m-%d"),  "status": "in_transit"},
+        {"id": "shp-002", "business_id": "demo-business-001", "supplier_id": "sup-001", "product_category": "roofing_materials", "quantity": 3160, "shipment_value_usd": 15200, "origin_port": "Port of Houston",        "destination_port": "Port of Baltimore", "dispatched_date": (today - timedelta(days=1)).strftime("%Y-%m-%d"), "expected_arrival_date": (today + timedelta(days=6)).strftime("%Y-%m-%d"),  "status": "in_transit"},
+        {"id": "shp-003", "business_id": "demo-business-001", "supplier_id": "sup-001", "product_category": "roofing_materials", "quantity": 2036, "shipment_value_usd": 9800,  "origin_port": "Port of Houston",        "destination_port": "Port of Baltimore", "dispatched_date": (today).strftime("%Y-%m-%d"),                     "expected_arrival_date": (today + timedelta(days=8)).strftime("%Y-%m-%d"),  "status": "in_transit"},
+        # demo-business-001: roofing materials from second US supplier
+        {"id": "shp-004", "business_id": "demo-business-001", "supplier_id": "sup-002", "product_category": "roofing_materials", "quantity": 4490, "shipment_value_usd": 22000, "origin_port": "Port of Houston",        "destination_port": "Port of Baltimore", "dispatched_date": (today - timedelta(days=1)).strftime("%Y-%m-%d"), "expected_arrival_date": (today + timedelta(days=5)).strftime("%Y-%m-%d"),  "status": "in_transit"},
+        {"id": "shp-005", "business_id": "demo-business-001", "supplier_id": "sup-002", "product_category": "roofing_materials", "quantity": 2347, "shipment_value_usd": 11500, "origin_port": "Port of Houston",        "destination_port": "Port of Baltimore", "dispatched_date": (today).strftime("%Y-%m-%d"),                     "expected_arrival_date": (today + timedelta(days=10)).strftime("%Y-%m-%d"), "status": "in_transit"},
+        # demo-business-001: roofing materials from China supplier (longer transit)
+        {"id": "shp-006", "business_id": "demo-business-001", "supplier_id": "sup-003", "product_category": "roofing_materials", "quantity": 4230, "shipment_value_usd": 18700, "origin_port": "Port of Shanghai",       "destination_port": "Port of Baltimore", "dispatched_date": (today - timedelta(days=8)).strftime("%Y-%m-%d"), "expected_arrival_date": (today + timedelta(days=14)).strftime("%Y-%m-%d"), "status": "in_transit"},
+        # demo-business-001: fasteners from US and Korea
+        {"id": "shp-007", "business_id": "demo-business-001", "supplier_id": "sup-006", "product_category": "fasteners",         "quantity": 7000, "shipment_value_usd": 8400,  "origin_port": "Port of Houston",        "destination_port": "Port of Baltimore", "dispatched_date": (today - timedelta(days=1)).strftime("%Y-%m-%d"), "expected_arrival_date": (today + timedelta(days=7)).strftime("%Y-%m-%d"),  "status": "in_transit"},
+        {"id": "shp-008", "business_id": "demo-business-001", "supplier_id": "sup-007", "product_category": "fasteners",         "quantity": 5565, "shipment_value_usd": 6200,  "origin_port": "Port of Busan",          "destination_port": "Port of Baltimore", "dispatched_date": (today - timedelta(days=3)).strftime("%Y-%m-%d"), "expected_arrival_date": (today + timedelta(days=9)).strftime("%Y-%m-%d"),  "status": "in_transit"},
+        # demo-business-002: semiconductors and displays from Asia
+        {"id": "shp-009", "business_id": "demo-business-002", "supplier_id": "sup-009", "product_category": "semiconductors",    "quantity": 1000, "shipment_value_usd": 85000, "origin_port": "Port of Kaohsiung",      "destination_port": "Port of Los Angeles", "dispatched_date": (today - timedelta(days=10)).strftime("%Y-%m-%d"), "expected_arrival_date": (today + timedelta(days=12)).strftime("%Y-%m-%d"), "status": "in_transit"},
+        {"id": "shp-010", "business_id": "demo-business-002", "supplier_id": "sup-011", "product_category": "display_panels",    "quantity": 300,  "shipment_value_usd": 45000, "origin_port": "Port of Ho Chi Minh",    "destination_port": "Port of Los Angeles", "dispatched_date": (today - timedelta(days=7)).strftime("%Y-%m-%d"),  "expected_arrival_date": (today + timedelta(days=15)).strftime("%Y-%m-%d"), "status": "in_transit"},
+    ]
+    load_rows("shipment_timetable", rows)
 
 def seed_alternative_suppliers():
     rows = [

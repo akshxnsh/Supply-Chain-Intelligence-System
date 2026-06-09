@@ -6,7 +6,7 @@ import TraceScreen from "./screens/TraceScreen"
 import SupplierHealthScreen from "./screens/SupplierHealthScreen"
 import OverviewScreen from "./screens/OverviewScreen"
 
-const API = "http://localhost:8000"
+const API = "http://127.0.0.1:8000"
 const DEFAULT_BIZ = "demo-business-001"
 
 const SCREEN_TITLES = {
@@ -43,7 +43,7 @@ export default function App() {
       if (res.data.success === false) setError(res.data.error || "Agent failed")
       else setResult(res.data)
     } catch (e) {
-      setError("Backend not running")
+      setError(e.response?.data?.error || e.message || "Backend not running")
     } finally {
       setLoading(false)
     }

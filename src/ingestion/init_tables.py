@@ -72,14 +72,28 @@ BUSINESS_SUPPLIERS_SCHEMA = [
 ]
 
 PENDING_ORDERS_SCHEMA = [
-    bigquery.SchemaField("id", "STRING", mode="REQUIRED"),
-    bigquery.SchemaField("business_id", "STRING", mode="REQUIRED"),
-    bigquery.SchemaField("supplier_id", "STRING", mode="REQUIRED"),
-    bigquery.SchemaField("order_value_usd", "FLOAT", mode="REQUIRED"),
-    bigquery.SchemaField("quantity", "INTEGER", mode="REQUIRED"),
-    bigquery.SchemaField("primary_unit_price_usd", "FLOAT", mode="REQUIRED"),
-    bigquery.SchemaField("eta_date", "DATE", mode="REQUIRED"),
-    bigquery.SchemaField("status", "STRING", mode="REQUIRED"),
+    bigquery.SchemaField("id",               "STRING",  mode="REQUIRED"),
+    bigquery.SchemaField("business_id",      "STRING",  mode="REQUIRED"),
+    bigquery.SchemaField("client_id",        "STRING",  mode="NULLABLE"),
+    bigquery.SchemaField("product_category", "STRING",  mode="REQUIRED"),
+    bigquery.SchemaField("quantity",         "INTEGER", mode="REQUIRED"),
+    bigquery.SchemaField("order_value_usd",  "FLOAT",   mode="REQUIRED"),
+    bigquery.SchemaField("required_by_date", "DATE",    mode="REQUIRED"),
+    bigquery.SchemaField("status",           "STRING",  mode="REQUIRED"),
+]
+
+SHIPMENT_TIMETABLE_SCHEMA = [
+    bigquery.SchemaField("id",                    "STRING",  mode="REQUIRED"),
+    bigquery.SchemaField("business_id",           "STRING",  mode="REQUIRED"),
+    bigquery.SchemaField("supplier_id",           "STRING",  mode="REQUIRED"),
+    bigquery.SchemaField("product_category",      "STRING",  mode="REQUIRED"),
+    bigquery.SchemaField("quantity",              "INTEGER", mode="REQUIRED"),
+    bigquery.SchemaField("shipment_value_usd",    "FLOAT",   mode="REQUIRED"),
+    bigquery.SchemaField("origin_port",           "STRING",  mode="NULLABLE"),
+    bigquery.SchemaField("destination_port",      "STRING",  mode="NULLABLE"),
+    bigquery.SchemaField("dispatched_date",       "DATE",    mode="NULLABLE"),
+    bigquery.SchemaField("expected_arrival_date", "DATE",    mode="REQUIRED"),
+    bigquery.SchemaField("status",                "STRING",  mode="REQUIRED"),
 ]
 
 AGENT_ALERTS_SCHEMA = [
@@ -205,8 +219,13 @@ TABLES = {
     },
     "pending_orders": {
         "schema": PENDING_ORDERS_SCHEMA,
-        "description": "Pending orders from manual seed / Shopify",
+        "description": "Client orders placed with the business (demand side) — from Shopify or manual seed",
         "source": "Manual seed / Shopify"
+    },
+    "shipment_timetable": {
+        "schema": SHIPMENT_TIMETABLE_SCHEMA,
+        "description": "Inbound supplier shipments in transit to the business (supply side)",
+        "source": "ERP / manual seed"
     },
     "agent_alerts": {
         "schema": AGENT_ALERTS_SCHEMA,

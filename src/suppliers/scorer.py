@@ -1,10 +1,11 @@
 import json
+from typing import Any
 from src.ingestion.bq_client import (
     query_completed_orders_by_suppliers,
     query_supplier_reviews_by_suppliers,
 )
 
-def score_suppliers(candidates: list, calibration_baseline: float = None) -> str:
+def score_suppliers(candidates: list[dict[str, Any]], calibration_baseline: float = None) -> str:
     """
     Score and rank alternative suppliers using weighted formula.
     Reliability is computed dynamically from completed_orders (on-time rate + defect rate)

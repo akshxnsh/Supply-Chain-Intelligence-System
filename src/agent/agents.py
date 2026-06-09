@@ -24,21 +24,36 @@ from src.agent.tools import (
     get_pending_orders,
     get_port_activity,
     get_recent_disruptions,
+    get_shipment_timetable,
     get_supplier_reviews,
     get_tariff_updates,
     get_weather_alerts,
     query_calibration_baseline,
+    save_alert_record,
     search_alternative_suppliers,
     score_suppliers,
 )
 
 
-MODEL = os.getenv("MODEL_NAME", "gemini-2.5-flash").removeprefix("models/")
+MODEL = os.getenv("MODEL_NAME", "gemini-2.0-flash").removeprefix("models/")
 
 
 def _instruction(extra: str) -> Callable:
+    import logging
+
+    _log = logging.getLogger(__name__)
+
     def provider(context) -> str:
-        business_id = context.state.get("business_id", "demo-business-001")
+        business_id = (
+            context.state.get("business_id")
+            if context and hasattr(context, "state")
+            else None
+        )
+        if not business_id:
+            _log.warning(
+                "business_id missing from session state; falling back to demo-business-001"
+            )
+            business_id = "demo-business-001"
         business = get_business(business_id)
         return (
             f"Analyze only {business['name']} (business_id={business_id}). "
@@ -98,12 +113,15 @@ def create_root_agent() -> LlmAgent:
         ),
         instruction=_instruction(
             "Use the disruption findings supplied by the coordinator. "
-            "Calculate actual 30-day pending-order impact, inventory coverage, "
-            "expected loss, and rank all viable alternative suppliers. Return "
-            "the top three with full metrics."
+            "Call get_shipment_timetable to find inbound supplier shipments at risk, "
+            "get_pending_orders to see client demand, and get_inventory to check "
+            "if on-hand stock can cover client orders despite the disruption. "
+            "Then calculate_impact with the affected supplier IDs, rank all viable "
+            "alternative suppliers, and return the top three with full metrics."
         ),
         tools=[
             get_business_suppliers,
+            get_shipment_timetable,
             get_pending_orders,
             get_inventory,
             calculate_impact,
@@ -128,9 +146,11 @@ def create_root_agent() -> LlmAgent:
             "Use the selected ranked alternatives and impact figures. Draft a "
             "purchase order only for the top supplier and generate the owner "
             "email. If a black swan was detected, do not generate a PO and "
-            "require human review."
+            "require human review. After drafting, call save_alert_record with "
+            "the disruption_id, severity_score, and exposure_usd from the "
+            "analysis to persist the alert to BigQuery."
         ),
-        tools=[generate_purchase_order, generate_owner_email],
+        tools=[generate_purchase_order, generate_owner_email, save_alert_record],
         output_key="procurement_analysis",
         generate_content_config={"temperature": 0.1},
         **_callbacks(),

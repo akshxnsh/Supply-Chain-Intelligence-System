@@ -1,12 +1,15 @@
 import asyncio
 import hashlib
 import json
+import logging
 import os
 import re
 import time
 import uuid
 from datetime import datetime, timezone
 from typing import Any
+
+_log = logging.getLogger(__name__)
 
 from google.adk.events import event as adk_event
 from google.adk.runners import Runner
@@ -54,14 +57,34 @@ def _content_text(content) -> str:
 def _parse_result(text: str) -> dict[str, Any]:
     cleaned = re.sub(r"^```(?:json)?\s*", "", text.strip())
     cleaned = re.sub(r"\s*```$", "", cleaned)
+
+    payload = None
     try:
         payload = json.loads(cleaned)
     except json.JSONDecodeError:
         match = re.search(r"\{.*\}", cleaned, re.DOTALL)
-        if not match:
-            return {"raw_response": text}
-        payload = json.loads(match.group(0))
-    return SupplyChainAnalysis.model_validate(payload).model_dump()
+        if match:
+            try:
+                payload = json.loads(match.group(0))
+            except json.JSONDecodeError:
+                pass
+
+    if payload is None:
+        _log.error(
+            "[PARSE] LLM response is not valid JSON — raw text (first 500 chars): %.500s",
+            text,
+        )
+        return {"error": "parse_failure", "raw_response": text}
+
+    try:
+        return SupplyChainAnalysis.model_validate(payload).model_dump()
+    except Exception as exc:
+        _log.error(
+            "[PARSE] Schema validation failed: %s — payload keys: %s",
+            exc,
+            list(payload.keys()) if isinstance(payload, dict) else type(payload).__name__,
+        )
+        return {"error": "parse_failure", "raw_response": text}
 
 
 async def run_agent_cycle_async(
@@ -146,8 +169,16 @@ async def run_agent_cycle_async(
             result = _parse_result(final_text)
             result["tool_calls"] = tool_calls
             result["session_id"] = session_id
-            span.set_attribute("success", True)
-            span.set_attribute("tool_call_count", len(tool_calls))
+            if result.get("error") == "parse_failure":
+                span.set_attribute("success", False)
+                _log.error(
+                    "[CYCLE] Parse failure for business=%s session=%s",
+                    business_id,
+                    session_id,
+                )
+            else:
+                span.set_attribute("success", True)
+                span.set_attribute("tool_call_count", len(tool_calls))
             return result
     finally:
         reset_log_callback(token)

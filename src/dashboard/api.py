@@ -6,7 +6,7 @@ import sys, os, json
 sys.path.insert(0, os.path.dirname(os.path.dirname(
     os.path.dirname(os.path.abspath(__file__)))))
 
-from src.agent.runtime import run_agent_cycle_async
+from src.agent.runtime import run_agent_cycle_async, _persist_alert_if_new
 from src.agent.tools import generate_purchase_order
 from src.agent.business_registry import list_businesses, get_business
 from src.ingestion.bq_client import run_query_safe
@@ -84,12 +84,17 @@ async def simulate_disruption(business_id: str = Query(default=DEFAULT_BIZ)):
                 business_id=business_id,
                 log_callback=lambda msg: state.live_log.append(msg),
             )
-            if not result:
+            if not result or result.get("error"):
                 return {
                     "success": False,
-                    "error": "Agent did not complete. This is usually a Gemini quota issue. Wait 1 minute and try again."
+                    "error": result.get("error", "Agent did not complete. This is usually a Gemini quota issue. Wait 1 minute and try again.") if result else "Agent did not complete. This is usually a Gemini quota issue. Wait 1 minute and try again.",
+                    **({"raw_response": result.get("raw_response")} if result and result.get("raw_response") else {}),
                 }
             state.last_result = result
+            try:
+                await _asyncio.to_thread(_persist_alert_if_new, result, business_id)
+            except Exception as _persist_exc:
+                print(f"[PERSIST] Warning: alert persistence failed: {_persist_exc}")
             return {
                 "success": True,
                 "business_id": business_id,
