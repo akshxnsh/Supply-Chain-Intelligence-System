@@ -12,6 +12,7 @@ def test_adk_agent_topology(monkeypatch):
     assert root.mode == "chat"
     assert {agent.name for agent in root.sub_agents} == {
         "DisruptionDetectionAgent",
+        "FreshnessAgent",
         "SupplierRiskAgent",
         "ProcurementAgent",
         "CalibrationAgent",

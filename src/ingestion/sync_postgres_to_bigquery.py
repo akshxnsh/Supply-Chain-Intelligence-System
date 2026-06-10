@@ -13,7 +13,6 @@ import os
 from datetime import date, datetime
 from decimal import Decimal
 from typing import Any
-from uuid import uuid4
 
 from dotenv import load_dotenv
 from google.cloud import bigquery
@@ -26,19 +25,7 @@ load_dotenv()
 logging.basicConfig(level=logging.INFO, format="%(levelname)s: %(message)s")
 logger = logging.getLogger(__name__)
 
-PRIMARY_KEYS = {
-    "alternative_suppliers": "id",
-    "business_suppliers": "id",
-    "completed_orders": "id",
-    "disruption_events": "id",
-    "inventory": "id",
-    "pending_orders": "id",
-    "port_activity": "port_id",
-    "shipment_timetable": "id",
-    "supplier_reviews": "id",
-    "tariff_updates": "id",
-    "weather_alerts": "id",
-}
+SOURCE_SCHEMA = "google_sheets"
 
 
 def neon_connection():
@@ -55,12 +42,16 @@ def neon_connection():
     return psycopg.connect(dsn, row_factory=dict_row)
 
 
-def quote_pg(identifier: str) -> str:
-    return '"' + identifier.replace('"', '""') + '"'
+def postgres_table_ref(table_id: str) -> str:
+    return f"{SOURCE_SCHEMA}.{table_id}"
 
 
 def bq_table_ref(table_id: str) -> str:
     return f"`{PROJECT_ID}.{DATASET}.{table_id}`"
+
+
+def bq_table_id(table_id: str) -> str:
+    return f"{PROJECT_ID}.{DATASET}.{table_id}"
 
 
 def normalize_value(value: Any) -> Any:
@@ -85,96 +76,70 @@ def bq_schema_for(table_id: str) -> list[bigquery.SchemaField]:
     ]
 
 
+def filter_rows_to_bq_schema(
+    table_id: str,
+    rows: list[dict[str, Any]],
+    schema: list[bigquery.SchemaField],
+) -> list[dict[str, Any]]:
+    schema_fields = {field.name for field in schema}
+    filtered_rows = [{
+        key: value
+        for key, value in row.items()
+        if key in schema_fields
+    } for row in rows]
+
+    original_column_count = len(rows[0]) if rows else 0
+    filtered_column_count = len(filtered_rows[0]) if filtered_rows else 0
+    logger.info(
+        "%s: original column count=%s, filtered column count=%s",
+        table_id,
+        original_column_count,
+        filtered_column_count,
+    )
+    return filtered_rows
+
+
 def fetch_postgres_rows(table_id: str) -> list[dict[str, Any]]:
     with neon_connection() as conn:
         with conn.cursor() as cur:
-            cur.execute(f"SELECT * FROM {quote_pg(table_id)}")
+            cur.execute(f"SELECT * FROM {postgres_table_ref(table_id)}")
             return [normalize_row(dict(row)) for row in cur.fetchall()]
 
 
-def load_staging_table(table_id: str, rows: list[dict[str, Any]]) -> str:
-    staging_table_id = f"_staging_{table_id}_{uuid4().hex[:12]}"
-    staging_ref = f"{PROJECT_ID}.{DATASET}.{staging_table_id}"
-    table = bigquery.Table(staging_ref, schema=bq_schema_for(table_id))
-    client.create_table(table)
-
-    if rows:
-        job_config = bigquery.LoadJobConfig(
-            schema=table.schema,
-            write_disposition=bigquery.WriteDisposition.WRITE_TRUNCATE,
-        )
-        job = client.load_table_from_json(rows, staging_ref, job_config=job_config)
-        job.result()
-
-    return staging_table_id
-
-
-def merge_staging_into_target(table_id: str, staging_table_id: str, columns: list[str]) -> tuple[int, int]:
-    primary_key = PRIMARY_KEYS[table_id]
-    update_columns = [column for column in columns if column != primary_key]
-
-    update_sql = ", ".join(
-        f"T.`{column}` = S.`{column}`"
-        for column in update_columns
+def replace_bigquery_table(table_id: str, rows: list[dict[str, Any]]) -> int:
+    schema = bq_schema_for(table_id)
+    filtered_rows = filter_rows_to_bq_schema(table_id, rows, schema)
+    job_config = bigquery.LoadJobConfig(
+        schema=schema,
+        write_disposition=bigquery.WriteDisposition.WRITE_TRUNCATE,
     )
-    insert_columns = ", ".join(f"`{column}`" for column in columns)
-    insert_values = ", ".join(f"S.`{column}`" for column in columns)
-
-    sql = f"""
-        MERGE {bq_table_ref(table_id)} T
-        USING {bq_table_ref(staging_table_id)} S
-        ON T.`{primary_key}` = S.`{primary_key}`
-        WHEN MATCHED THEN
-          UPDATE SET {update_sql}
-        WHEN NOT MATCHED THEN
-          INSERT ({insert_columns}) VALUES ({insert_values})
-    """
-
-    job = client.query(sql)
+    job = client.load_table_from_json(filtered_rows, bq_table_id(table_id), job_config=job_config)
     job.result()
-
-    dml_stats = getattr(job, "dml_stats", None)
-    inserted = int(getattr(dml_stats, "inserted_row_count", 0) or 0)
-    updated = int(getattr(dml_stats, "updated_row_count", 0) or 0)
-    return inserted, updated
+    logger.info("%s: loaded %s rows into BigQuery", table_id, len(filtered_rows))
+    logger.info("%s: table replaced successfully", table_id)
+    return len(filtered_rows)
 
 
 def sync_table(table_id: str) -> bool:
     if table_id not in TABLE_IDS:
         raise ValueError(f"Unsupported table {table_id!r}. Expected one of: {', '.join(TABLE_IDS)}")
 
-    staging_table_id = None
     try:
         rows = fetch_postgres_rows(table_id)
         logger.info("%s: read %s rows from PostgreSQL", table_id, len(rows))
 
-        if not rows:
-            logger.info("%s: no rows to sync", table_id)
-            return True
-
-        columns = [field.name for field in bq_schema_for(table_id)]
-        staging_table_id = load_staging_table(table_id, rows)
-        inserted, updated = merge_staging_into_target(table_id, staging_table_id, columns)
-
-        logger.info(
-            "%s: sync complete, inserted=%s, updated=%s",
-            table_id,
-            inserted,
-            updated,
-        )
+        replace_bigquery_table(table_id, rows)
+        logger.info("%s: sync complete", table_id)
         return True
     except Exception:
         logger.exception("%s: sync failed", table_id)
         return False
-    finally:
-        if staging_table_id:
-            client.delete_table(f"{PROJECT_ID}.{DATASET}.{staging_table_id}", not_found_ok=True)
 
 
 def postgres_count(table_id: str) -> int:
     with neon_connection() as conn:
         with conn.cursor() as cur:
-            cur.execute(f"SELECT COUNT(*) AS count FROM {quote_pg(table_id)}")
+            cur.execute(f"SELECT COUNT(*) AS count FROM {postgres_table_ref(table_id)}")
             row = cur.fetchone()
             return int(row["count"])
 

@@ -5,6 +5,16 @@ from google.adk.agents import LlmAgent
 
 from src.agent.business_registry import get_business
 from src.agent.fivetran import create_fivetran_toolset
+from src.agent.freshness_agent import (
+    check_bigquery_table_freshness,
+    get_connector_status,
+    identify_stale_tables,
+    refresh_all_stale_tables,
+    refresh_connector,
+    refresh_stale_table,
+    sync_postgres_table_to_bigquery,
+    wait_for_connector_completion,
+)
 from src.agent.observability import (
     after_agent,
     after_tool,
@@ -181,6 +191,35 @@ def create_root_agent() -> LlmAgent:
         **_callbacks(),
     )
 
+    freshness_agent = LlmAgent(
+        name="FreshnessAgent",
+        model=MODEL,
+        mode="task",
+        description=(
+            "Checks BigQuery table freshness and refreshes stale PostgreSQL-backed tables."
+        ),
+        instruction=_instruction(
+            "Check configured BigQuery table freshness before analysis when source data may "
+            "be stale. Identify stale tables, map each table to its configured connector, "
+            "request connector refresh through the Fivetran MCP interface, wait for completion, "
+            "run the PostgreSQL-to-BigQuery sync for that table, and verify freshness after "
+            "sync. Use the MCP-backed freshness tools and do not call Fivetran REST APIs."
+        ),
+        tools=[
+            check_bigquery_table_freshness,
+            identify_stale_tables,
+            refresh_connector,
+            get_connector_status,
+            wait_for_connector_completion,
+            sync_postgres_table_to_bigquery,
+            refresh_stale_table,
+            refresh_all_stale_tables,
+        ],
+        output_key="freshness_analysis",
+        generate_content_config={"temperature": 0.1},
+        **_callbacks(),
+    )
+
     root_tools = []
     fivetran_toolset = create_fivetran_toolset()
     if fivetran_toolset:
@@ -196,10 +235,10 @@ def create_root_agent() -> LlmAgent:
         ),
         instruction=_instruction(
             "You are the root supply-chain intelligence coordinator. Delegate "
-            "disruption analysis, supplier risk, calibration, and procurement "
-            "work to the specialist agents. Use Fivetran MCP tools when "
-            "available: if inventory or order data is stale, check connector "
-            "state, trigger and monitor a sync, then resume analysis. Fire an "
+            "freshness checks, disruption analysis, supplier risk, calibration, "
+            "and procurement work to the specialist agents. Use the FreshnessAgent "
+            "when inventory, order, shipment, or supplier data may be stale. "
+            "Freshness refreshes must go through the configured Fivetran MCP server. Fire an "
             "alert whenever at least one pending shipment is affected. Do not "
             "fire an alert when there is no affected shipment and no financial "
             "impact. Severity must reflect inventory coverage, expected loss, "
@@ -210,6 +249,7 @@ def create_root_agent() -> LlmAgent:
         ),
         sub_agents=[
             disruption_agent,
+            freshness_agent,
             supplier_risk_agent,
             calibration_agent,
             procurement_agent,
