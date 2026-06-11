@@ -1,7 +1,6 @@
 import { useState, useEffect, useCallback } from "react"
 
-const API = "http://localhost:8000"
-
+import { API } from "../config";
 function formatAge(minutes) {
   if (minutes == null) return "—"
   if (minutes < 1) return "< 1 min ago"

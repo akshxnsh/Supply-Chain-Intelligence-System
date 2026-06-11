@@ -1,7 +1,6 @@
 import { useState, useEffect, useRef } from "react"
 
-const API = "http://localhost:8000"
-
+import { API } from "../config";
 // ── Friendly labels for each tool ──────────────────────────────────────────────
 const TOOL_LABELS = {
   // freshness

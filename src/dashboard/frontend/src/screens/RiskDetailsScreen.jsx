@@ -1,7 +1,6 @@
 import { useState, useEffect } from "react"
 
-const API = "http://localhost:8000"
-
+import { API } from "../config";
 function formatExposure(usd) {
   if (!usd) return "$0"
   if (usd >= 1_000_000) return `$${(usd / 1_000_000).toFixed(1)}M`

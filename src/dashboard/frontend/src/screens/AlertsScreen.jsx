@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback } from "react";
-
+import { API } from "../config";
 function getSeverityColor(score) {
   if (score >= 8) return "#ef4444";
   if (score >= 5) return "#f97316";
@@ -63,7 +63,7 @@ function AlertCard({ alert, onAcknowledge }) {
   const handleAcknowledge = async (e) => {
     e.stopPropagation();
     try {
-      await fetch(`http://localhost:8000/api/alerts/${alert.id}/acknowledge`, { method: "POST" });
+      await fetch(`${API}/api/alerts/${alert.id}/acknowledge`, { method: "POST" });
       setLocalStatus("acknowledged");
       if (onAcknowledge) onAcknowledge(alert.id);
     } catch {}

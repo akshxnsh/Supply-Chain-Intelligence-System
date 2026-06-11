@@ -1,5 +1,5 @@
 import { useState } from "react"
-
+import { API } from "../config";
 export default function ActionPanel({ result, approved, onApprove, ownerEmail, businessId }) {
   const [copiedPO, setCopiedPO] = useState(false)
   const [copiedEmail, setCopiedEmail] = useState(false)
@@ -23,7 +23,7 @@ export default function ActionPanel({ result, approved, onApprove, ownerEmail, b
     setSending(true)
     setApprovalError(null)
     try {
-      const res = await fetch(`http://localhost:8000/api/approve-action?business_id=${businessId}`, {
+      const res = await fetch(`${API}/api/approve-action?business_id=${businessId}`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
