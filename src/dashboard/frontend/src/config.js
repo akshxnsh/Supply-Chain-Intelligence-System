@@ -1,2 +1,3 @@
 export const API =
-  import.meta.env.VITE_API_URL || "http://localhost:8000";
+  import.meta.env.VITE_API_URL ||
+    "https://supply-chain-intelligence-system-production.up.railway.app";

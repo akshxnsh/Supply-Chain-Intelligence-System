@@ -7,7 +7,7 @@ import DashboardScreen from "./screens/DashboardScreen"
 import RiskDetailsScreen from "./screens/RiskDetailsScreen"
 import FreshnessScreen from "./screens/FreshnessScreen"
 
-import { API } from "../config";
+import { API } from "./config";
 const DEFAULT_BIZ = "demo-business-001"
 
 const SCREEN_TITLES = {
