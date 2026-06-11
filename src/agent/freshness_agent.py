@@ -155,7 +155,13 @@ async def sync_postgres_table_to_bigquery(table_name: str) -> str:
 
 
 async def refresh_stale_table(table_name: str) -> str:
-    """Refresh one stale table, sync PostgreSQL to BigQuery, then verify freshness."""
+    """Refresh one stale table by syncing PostgreSQL → BigQuery, then verify freshness.
+
+    The Fivetran connector step (Google Sheets → Postgres) is intentionally skipped:
+    the demo stages the incident dataset directly into the Postgres source schema via
+    load_incident_source.py, so re-running Fivetran here would overwrite it with the
+    baseline workbook before the BigQuery sync. Refresh reads straight from Postgres.
+    """
     before = _table_freshness(table_name)
     if not before["is_stale"]:
         return json.dumps(
@@ -168,16 +174,12 @@ async def refresh_stale_table(table_name: str) -> str:
             default=str,
         )
 
-    connector_refresh = json.loads(await refresh_connector(table_name))
-    connector_status = json.loads(await wait_for_connector_completion(table_name))
     sync_result = json.loads(await sync_postgres_table_to_bigquery(table_name))
     after = await asyncio.to_thread(_table_freshness, table_name)
 
     return json.dumps(
         {
             "table_name": table_name,
-            "connector_refresh": connector_refresh,
-            "connector_status": connector_status,
             "sync_result": sync_result,
             "freshness_before": before,
             "freshness_after": after,
