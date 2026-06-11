@@ -193,7 +193,6 @@ def collect_seed_rows() -> dict[str, list[dict[str, Any]]]:
     seed["seed_inventory"]()
     seed["seed_completed_orders"]()
     seed["seed_supplier_reviews"]()
-    seed["seed_business_002"]()
     return seed_rows
 
 

@@ -118,7 +118,6 @@ def seed_postgres_tables() -> None:
                 seed["seed_inventory"]()
                 seed["seed_completed_orders"]()
                 seed["seed_supplier_reviews"]()
-                seed["seed_business_002"]()
 
             conn.commit()
 

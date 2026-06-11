@@ -45,14 +45,16 @@ def load_rows(
 
 def seed_business_suppliers():
     rows = [
-        {"id": "sup-001", "business_id": "demo-business-001", "supplier_name": "Texas Gulf Imports",    "country": "USA",         "product_category": "roofing_materials", "annual_spend_usd": 180000},
-        {"id": "sup-002", "business_id": "demo-business-001", "supplier_name": "Houston Steel Supply",  "country": "USA",         "product_category": "roofing_materials", "annual_spend_usd": 120000},
-        {"id": "sup-003", "business_id": "demo-business-001", "supplier_name": "Guangzhou Metal Works", "country": "China",       "product_category": "roofing_materials", "annual_spend_usd": 95000},
-        {"id": "sup-004", "business_id": "demo-business-001", "supplier_name": "Vietnam Hardware Co",   "country": "Vietnam",     "product_category": "roofing_materials", "annual_spend_usd": 60000},
-        {"id": "sup-005", "business_id": "demo-business-001", "supplier_name": "Monterrey Steel MX",   "country": "Mexico",      "product_category": "roofing_materials", "annual_spend_usd": 75000},
-        {"id": "sup-006", "business_id": "demo-business-001", "supplier_name": "Dallas Fasteners Inc",  "country": "USA",         "product_category": "fasteners",         "annual_spend_usd": 40000},
-        {"id": "sup-007", "business_id": "demo-business-001", "supplier_name": "Seoul Components Ltd",  "country": "South Korea", "product_category": "fasteners",         "annual_spend_usd": 35000},
-        {"id": "sup-008", "business_id": "demo-business-001", "supplier_name": "Mumbai Parts Exports",  "country": "India",       "product_category": "fasteners",         "annual_spend_usd": 28000},
+        # auto_parts — Mid-Atlantic Auto Parts Distribution LLC, primary port: Port of Baltimore
+        {"id": "sup-001", "business_id": "demo-business-001", "supplier_name": "Bavarian Parts GmbH",      "country": "Germany",     "product_category": "auto_parts", "annual_spend_usd": 340000},
+        {"id": "sup-002", "business_id": "demo-business-001", "supplier_name": "Hyundai Mobis Trade",       "country": "South Korea", "product_category": "auto_parts", "annual_spend_usd": 280000},
+        {"id": "sup-003", "business_id": "demo-business-001", "supplier_name": "Guangzhou Auto Components", "country": "China",       "product_category": "auto_parts", "annual_spend_usd": 195000},
+        {"id": "sup-004", "business_id": "demo-business-001", "supplier_name": "Harrisburg Auto Supply",    "country": "USA",         "product_category": "auto_parts", "annual_spend_usd": 120000},
+        {"id": "sup-005", "business_id": "demo-business-001", "supplier_name": "Ontario Parts Exports",     "country": "Canada",      "product_category": "auto_parts", "annual_spend_usd": 95000},
+        # fasteners
+        {"id": "sup-006", "business_id": "demo-business-001", "supplier_name": "Dallas Fasteners Inc",      "country": "USA",         "product_category": "fasteners",  "annual_spend_usd": 40000},
+        {"id": "sup-007", "business_id": "demo-business-001", "supplier_name": "Seoul Components Ltd",      "country": "South Korea", "product_category": "fasteners",  "annual_spend_usd": 35000},
+        {"id": "sup-008", "business_id": "demo-business-001", "supplier_name": "Mumbai Parts Exports",      "country": "India",       "product_category": "fasteners",  "annual_spend_usd": 28000},
     ]
     load_rows("business_suppliers", rows)
 
@@ -60,14 +62,12 @@ def seed_pending_orders():
     today = datetime.utcnow()
     # Client orders — what customers have ordered from the business (demand side)
     rows = [
-        {"id": "co-001", "business_id": "demo-business-001", "client_id": "client-alpha",   "product_category": "roofing_materials", "quantity": 1200, "order_value_usd": 14400, "required_by_date": (today + timedelta(days=10)).strftime("%Y-%m-%d"), "status": "pending"},
-        {"id": "co-002", "business_id": "demo-business-001", "client_id": "client-beta",    "product_category": "roofing_materials", "quantity": 800,  "order_value_usd": 9600,  "required_by_date": (today + timedelta(days=12)).strftime("%Y-%m-%d"), "status": "pending"},
-        {"id": "co-003", "business_id": "demo-business-001", "client_id": "client-gamma",   "product_category": "roofing_materials", "quantity": 600,  "order_value_usd": 7200,  "required_by_date": (today + timedelta(days=15)).strftime("%Y-%m-%d"), "status": "pending"},
-        {"id": "co-004", "business_id": "demo-business-001", "client_id": "client-delta",   "product_category": "roofing_materials", "quantity": 400,  "order_value_usd": 4800,  "required_by_date": (today + timedelta(days=20)).strftime("%Y-%m-%d"), "status": "pending"},
+        {"id": "co-001", "business_id": "demo-business-001", "client_id": "client-alpha",   "product_category": "auto_parts", "quantity": 1460, "order_value_usd": 58400,  "required_by_date": (today + timedelta(days=14)).strftime("%Y-%m-%d"), "status": "pending"},
+        {"id": "co-002", "business_id": "demo-business-001", "client_id": "client-beta",    "product_category": "auto_parts", "quantity": 1030, "order_value_usd": 41200,  "required_by_date": (today + timedelta(days=18)).strftime("%Y-%m-%d"), "status": "pending"},
+        {"id": "co-003", "business_id": "demo-business-001", "client_id": "client-gamma",   "product_category": "auto_parts", "quantity": 1950, "order_value_usd": 78000,  "required_by_date": (today + timedelta(days=21)).strftime("%Y-%m-%d"), "status": "pending"},
+        {"id": "co-004", "business_id": "demo-business-001", "client_id": "client-delta",   "product_category": "auto_parts", "quantity": 615,  "order_value_usd": 24600,  "required_by_date": (today + timedelta(days=25)).strftime("%Y-%m-%d"), "status": "pending"},
         {"id": "co-005", "business_id": "demo-business-001", "client_id": "client-epsilon", "product_category": "fasteners",         "quantity": 3000, "order_value_usd": 3600,  "required_by_date": (today + timedelta(days=8)).strftime("%Y-%m-%d"),  "status": "pending"},
         {"id": "co-006", "business_id": "demo-business-001", "client_id": "client-zeta",    "product_category": "fasteners",         "quantity": 2000, "order_value_usd": 2400,  "required_by_date": (today + timedelta(days=14)).strftime("%Y-%m-%d"), "status": "pending"},
-        {"id": "co-007", "business_id": "demo-business-002", "client_id": "client-eta",     "product_category": "semiconductors",    "quantity": 500,  "order_value_usd": 75000, "required_by_date": (today + timedelta(days=18)).strftime("%Y-%m-%d"), "status": "pending"},
-        {"id": "co-008", "business_id": "demo-business-002", "client_id": "client-theta",   "product_category": "display_panels",    "quantity": 200,  "order_value_usd": 40000, "required_by_date": (today + timedelta(days=22)).strftime("%Y-%m-%d"), "status": "pending"},
     ]
     load_rows("pending_orders", rows)
 
@@ -105,35 +105,35 @@ def seed_shipment_timetable():
             "status": "in_transit",
         }
 
-    # Inbound supplier shipments — what the business has ordered from its suppliers (supply side)
+    # Inbound supplier shipments — Baltimore bridge collapse scenario (demo-business-001)
     rows = [
-        # demo-business-001: roofing materials from US suppliers (domestic, Port of Houston)
-        shipment_row("shp-001", "demo-business-001", "sup-001", "roofing_materials", 5900, 28400, "Port of Houston", "Port of Baltimore", today - timedelta(days=2), today + timedelta(days=4), "Port of Houston > Memphis Rail Hub > Port of Baltimore"),
-        shipment_row("shp-002", "demo-business-001", "sup-001", "roofing_materials", 3160, 15200, "Port of Houston", "Port of Baltimore", today - timedelta(days=1), today + timedelta(days=6), "Port of Houston > Nashville Rail Hub > Port of Baltimore"),
-        shipment_row("shp-003", "demo-business-001", "sup-001", "roofing_materials", 2036, 9800, "Port of Houston", "Port of Baltimore", today, today + timedelta(days=8), "Port of Houston > Atlanta Rail Hub > Port of Baltimore"),
-        # demo-business-001: roofing materials from second US supplier
-        shipment_row("shp-004", "demo-business-001", "sup-002", "roofing_materials", 4490, 22000, "Port of Houston", "Port of Baltimore", today - timedelta(days=1), today + timedelta(days=5), "Port of Houston > Memphis Rail Hub > Port of Baltimore"),
-        shipment_row("shp-005", "demo-business-001", "sup-002", "roofing_materials", 2347, 11500, "Port of Houston", "Port of Baltimore", today, today + timedelta(days=10), "Port of Houston > Nashville Rail Hub > Port of Baltimore"),
-        # demo-business-001: roofing materials from China supplier (longer transit)
-        shipment_row("shp-006", "demo-business-001", "sup-003", "roofing_materials", 4230, 18700, "Port of Shanghai", "Port of Baltimore", today - timedelta(days=8), today + timedelta(days=14), "Port of Shanghai > Singapore Strait > Port of Los Angeles > Port of Baltimore"),
-        # demo-business-001: fasteners from US and Korea
-        shipment_row("shp-007", "demo-business-001", "sup-006", "fasteners", 7000, 8400, "Port of Houston", "Port of Baltimore", today - timedelta(days=1), today + timedelta(days=7), "Port of Houston > Atlanta Rail Hub > Port of Baltimore"),
-        shipment_row("shp-008", "demo-business-001", "sup-007", "fasteners", 5565, 6200, "Port of Busan", "Port of Baltimore", today - timedelta(days=3), today + timedelta(days=9), "Port of Busan > Port of Los Angeles > Port of Baltimore"),
+        # auto_parts from international suppliers — all routed through Port of Baltimore (at risk)
+        shipment_row("shp-001", "demo-business-001", "sup-001", "auto_parts", 4550, 182000, "Port of Hamburg",      "Port of Baltimore", today - timedelta(days=12), today + timedelta(days=7),  "Port of Hamburg > English Channel > Atlantic Crossing > Port of Baltimore"),
+        shipment_row("shp-002", "demo-business-001", "sup-002", "auto_parts", 3200, 128000, "Port of Busan",        "Port of Baltimore", today - timedelta(days=14), today + timedelta(days=5),  "Port of Busan > Pacific Crossing > Port of Los Angeles > Port of Baltimore"),
+        shipment_row("shp-003", "demo-business-001", "sup-003", "auto_parts", 1700,  68000, "Port of Shanghai",     "Port of Baltimore", today - timedelta(days=18), today + timedelta(days=9),  "Port of Shanghai > Singapore Strait > Pacific Crossing > Port of Los Angeles > Port of Baltimore"),
+        # auto_parts rerouted to Port of Virginia — safe (avoids bridge closure)
+        shipment_row("shp-005", "demo-business-001", "sup-005", "auto_parts", 2800, 112000, "Port of Montreal",     "Port of Virginia",  today - timedelta(days=5),  today + timedelta(days=8),  "Port of Montreal > Atlantic Coast > Port of Virginia"),
+        # fasteners from US domestic (at risk — routed via Port of Baltimore)
+        shipment_row("shp-006", "demo-business-001", "sup-006", "fasteners",  7000,   8400, "Port of Houston",      "Port of Baltimore", today - timedelta(days=1),  today + timedelta(days=7),  "Port of Houston > Memphis Rail Hub > Port of Baltimore"),
+        # fasteners from Korea — one at risk, one rerouted to Port of Virginia
+        shipment_row("shp-007", "demo-business-001", "sup-007", "fasteners",  5565,   6200, "Port of Busan",        "Port of Baltimore", today - timedelta(days=3),  today + timedelta(days=9),  "Port of Busan > Pacific Crossing > Port of Los Angeles > Port of Baltimore"),
+        shipment_row("shp-008", "demo-business-001", "sup-007", "fasteners",  2800,   3100, "Port of Busan",        "Port of Virginia",  today - timedelta(days=6),  today + timedelta(days=10), "Port of Busan > Pacific Crossing > Port of Los Angeles > Port of Virginia"),
     ]
     load_rows("shipment_timetable", rows)
 
 def seed_alternative_suppliers():
     rows = [
-        {"id": "alt-001", "name": "Memphis Steel Supply",       "country": "USA",         "product_category": "roofing_materials", "moq": 500,  "lead_time_days": 8,  "unit_price_usd": 4.82, "reliability_score": 9.2, "geographic_risk_score": 9.0},
-        {"id": "alt-002", "name": "Atlanta Hardware Co",        "country": "USA",         "product_category": "roofing_materials", "moq": 300,  "lead_time_days": 11, "unit_price_usd": 4.80, "reliability_score": 8.8, "geographic_risk_score": 9.0},
-        {"id": "alt-003", "name": "Chicago Metal Distributors", "country": "USA",         "product_category": "roofing_materials", "moq": 400,  "lead_time_days": 10, "unit_price_usd": 4.95, "reliability_score": 8.5, "geographic_risk_score": 9.0},
-        {"id": "alt-004", "name": "Monterrey Industrial MX",   "country": "Mexico",      "product_category": "roofing_materials", "moq": 600,  "lead_time_days": 9,  "unit_price_usd": 4.60, "reliability_score": 8.7, "geographic_risk_score": 9.0},
-        {"id": "alt-005", "name": "Toronto Steel Works",        "country": "Canada",      "product_category": "roofing_materials", "moq": 350,  "lead_time_days": 12, "unit_price_usd": 5.10, "reliability_score": 9.0, "geographic_risk_score": 9.0},
-        {"id": "alt-006", "name": "Hanoi Metal Exports",        "country": "Vietnam",     "product_category": "roofing_materials", "moq": 800,  "lead_time_days": 18, "unit_price_usd": 3.90, "reliability_score": 7.8, "geographic_risk_score": 6.5},
-        {"id": "alt-007", "name": "Taipei Hardware Ltd",        "country": "Taiwan",      "product_category": "roofing_materials", "moq": 700,  "lead_time_days": 15, "unit_price_usd": 4.20, "reliability_score": 8.3, "geographic_risk_score": 7.5},
-        {"id": "alt-008", "name": "Pune Steel Exports",         "country": "India",       "product_category": "roofing_materials", "moq": 1000, "lead_time_days": 21, "unit_price_usd": 3.70, "reliability_score": 7.5, "geographic_risk_score": 6.0},
-        {"id": "alt-009", "name": "Busan Components Co",        "country": "South Korea", "product_category": "roofing_materials", "moq": 500,  "lead_time_days": 16, "unit_price_usd": 4.40, "reliability_score": 8.6, "geographic_risk_score": 8.0},
-        {"id": "alt-010", "name": "Warsaw Metal Works",         "country": "Poland",      "product_category": "roofing_materials", "moq": 400,  "lead_time_days": 14, "unit_price_usd": 4.65, "reliability_score": 8.1, "geographic_risk_score": 7.5},
+        # auto_parts alternatives — domestic USA options rank highest for speed
+        {"id": "alt-001", "name": "Harrisburg Auto Parts",     "country": "USA",         "product_category": "auto_parts", "moq": 500,  "lead_time_days": 3,  "unit_price_usd": 4.50, "reliability_score": 9.5, "geographic_risk_score": 9.5},
+        {"id": "alt-002", "name": "Richmond Auto Supply",       "country": "USA",         "product_category": "auto_parts", "moq": 300,  "lead_time_days": 4,  "unit_price_usd": 4.20, "reliability_score": 9.2, "geographic_risk_score": 9.5},
+        {"id": "alt-003", "name": "Detroit Auto Distributors",  "country": "USA",         "product_category": "auto_parts", "moq": 400,  "lead_time_days": 5,  "unit_price_usd": 3.90, "reliability_score": 8.9, "geographic_risk_score": 9.5},
+        {"id": "alt-004", "name": "Atlanta Parts Supply",       "country": "USA",         "product_category": "auto_parts", "moq": 350,  "lead_time_days": 5,  "unit_price_usd": 4.10, "reliability_score": 8.7, "geographic_risk_score": 9.5},
+        {"id": "alt-005", "name": "Ontario Auto Components",    "country": "Canada",      "product_category": "auto_parts", "moq": 600,  "lead_time_days": 8,  "unit_price_usd": 4.00, "reliability_score": 9.0, "geographic_risk_score": 9.0},
+        {"id": "alt-006", "name": "Saltillo Auto Parts MX",    "country": "Mexico",      "product_category": "auto_parts", "moq": 500,  "lead_time_days": 7,  "unit_price_usd": 3.75, "reliability_score": 8.4, "geographic_risk_score": 8.5},
+        {"id": "alt-007", "name": "Warsaw Auto Components",     "country": "Poland",      "product_category": "auto_parts", "moq": 400,  "lead_time_days": 14, "unit_price_usd": 3.80, "reliability_score": 8.1, "geographic_risk_score": 7.5},
+        {"id": "alt-008", "name": "Ankara Parts Export",        "country": "Turkey",      "product_category": "auto_parts", "moq": 700,  "lead_time_days": 12, "unit_price_usd": 3.60, "reliability_score": 8.3, "geographic_risk_score": 7.0},
+        {"id": "alt-009", "name": "Pune Auto Components",       "country": "India",       "product_category": "auto_parts", "moq": 1000, "lead_time_days": 20, "unit_price_usd": 3.50, "reliability_score": 7.5, "geographic_risk_score": 6.0},
+        {"id": "alt-010", "name": "Taipei Auto Parts",          "country": "Taiwan",      "product_category": "auto_parts", "moq": 500,  "lead_time_days": 16, "unit_price_usd": 4.00, "reliability_score": 8.6, "geographic_risk_score": 7.5},
         {"id": "alt-011", "name": "Phoenix Fasteners USA",      "country": "USA",         "product_category": "fasteners",         "moq": 200,  "lead_time_days": 7,  "unit_price_usd": 1.20, "reliability_score": 9.1, "geographic_risk_score": 9.0},
         {"id": "alt-012", "name": "Detroit Parts Supply",       "country": "USA",         "product_category": "fasteners",         "moq": 150,  "lead_time_days": 9,  "unit_price_usd": 1.18, "reliability_score": 8.9, "geographic_risk_score": 9.0},
         {"id": "alt-013", "name": "Guadalajara Fasteners",      "country": "Mexico",      "product_category": "fasteners",         "moq": 300,  "lead_time_days": 8,  "unit_price_usd": 0.98, "reliability_score": 8.4, "geographic_risk_score": 9.0},
@@ -150,16 +150,22 @@ def seed_alternative_suppliers():
 def seed_port_activity():
     now = datetime.utcnow().strftime("%Y-%m-%dT%H:%M:%S")
     rows = [
-        {"port_id": "port-001", "port_name": "Port of Houston",    "congestion_score": 8.5, "vessel_delay_hours": 72.0, "strike_flag": True,  "updated_at": now},
-        {"port_id": "port-002", "port_name": "Port of Los Angeles", "congestion_score": 3.2, "vessel_delay_hours": 12.0, "strike_flag": False, "updated_at": now},
-        {"port_id": "port-003", "port_name": "Port of Long Beach",  "congestion_score": 2.8, "vessel_delay_hours": 8.0,  "strike_flag": False, "updated_at": now},
-        {"port_id": "port-004", "port_name": "Port of Seattle",     "congestion_score": 2.1, "vessel_delay_hours": 4.0,  "strike_flag": False, "updated_at": now},
-        {"port_id": "port-005", "port_name": "Port of New York",    "congestion_score": 3.5, "vessel_delay_hours": 10.0, "strike_flag": False, "updated_at": now},
-        {"port_id": "port-006", "port_name": "Port of Savannah",    "congestion_score": 2.9, "vessel_delay_hours": 6.0,  "strike_flag": False, "updated_at": now},
-        {"port_id": "port-007", "port_name": "Port of Miami",       "congestion_score": 2.2, "vessel_delay_hours": 5.0,  "strike_flag": False, "updated_at": now},
-        {"port_id": "port-008", "port_name": "Port of Shanghai",    "congestion_score": 4.1, "vessel_delay_hours": 18.0, "strike_flag": False, "updated_at": now},
-        {"port_id": "port-009", "port_name": "Port of Shenzhen",    "congestion_score": 3.8, "vessel_delay_hours": 14.0, "strike_flag": False, "updated_at": now},
-        {"port_id": "port-010", "port_name": "Port of Rotterdam",   "congestion_score": 2.5, "vessel_delay_hours": 6.0,  "strike_flag": False, "updated_at": now},
+        {"port_id": "port-001", "port_name": "Port of Houston",    "congestion_score": 8.5,  "vessel_delay_hours": 72.0,   "strike_flag": True,  "updated_at": now},
+        {"port_id": "port-002", "port_name": "Port of Los Angeles", "congestion_score": 3.2,  "vessel_delay_hours": 12.0,   "strike_flag": False, "updated_at": now},
+        {"port_id": "port-003", "port_name": "Port of Long Beach",  "congestion_score": 2.8,  "vessel_delay_hours": 8.0,    "strike_flag": False, "updated_at": now},
+        {"port_id": "port-004", "port_name": "Port of Seattle",     "congestion_score": 2.1,  "vessel_delay_hours": 4.0,    "strike_flag": False, "updated_at": now},
+        # Port of New York sees elevated congestion as overflow from Baltimore closure
+        {"port_id": "port-005", "port_name": "Port of New York",    "congestion_score": 6.8,  "vessel_delay_hours": 36.0,   "strike_flag": False, "updated_at": now},
+        {"port_id": "port-006", "port_name": "Port of Savannah",    "congestion_score": 2.9,  "vessel_delay_hours": 6.0,    "strike_flag": False, "updated_at": now},
+        {"port_id": "port-007", "port_name": "Port of Miami",       "congestion_score": 2.2,  "vessel_delay_hours": 5.0,    "strike_flag": False, "updated_at": now},
+        {"port_id": "port-008", "port_name": "Port of Shanghai",    "congestion_score": 4.1,  "vessel_delay_hours": 18.0,   "strike_flag": False, "updated_at": now},
+        {"port_id": "port-009", "port_name": "Port of Shenzhen",    "congestion_score": 3.8,  "vessel_delay_hours": 14.0,   "strike_flag": False, "updated_at": now},
+        {"port_id": "port-010", "port_name": "Port of Rotterdam",   "congestion_score": 2.5,  "vessel_delay_hours": 6.0,    "strike_flag": False, "updated_at": now},
+        # Baltimore bridge collapse — port closed indefinitely (77-day historical closure)
+        {"port_id": "port-011", "port_name": "Port of Baltimore",   "congestion_score": 10.0, "vessel_delay_hours": 1848.0, "strike_flag": True,  "updated_at": now},
+        # Alternate East Coast ports receiving diverted Baltimore traffic
+        {"port_id": "port-012", "port_name": "Port of Virginia",    "congestion_score": 7.2,  "vessel_delay_hours": 48.0,   "strike_flag": False, "updated_at": now},
+        {"port_id": "port-013", "port_name": "Port of Brunswick",   "congestion_score": 5.8,  "vessel_delay_hours": 24.0,   "strike_flag": False, "updated_at": now},
     ]
     load_rows("port_activity", rows)
 
@@ -176,7 +182,18 @@ def seed_disruption_events():
             "severity_raw": 8.5,
             "published_at": now,
             "inserted_at": now,
-        }
+        },
+        {
+            "id": "evt-002",
+            "source": "news_api",
+            "headline": "Francis Scott Key Bridge collapses after container ship strike — Port of Baltimore closed indefinitely",
+            "location_name": "Baltimore, Maryland, USA",
+            "lat": 39.2837,
+            "lon": -76.5817,
+            "severity_raw": 9.5,
+            "published_at": now,
+            "inserted_at": now,
+        },
     ]
     load_rows("disruption_events", rows)
 
@@ -336,6 +353,28 @@ def seed_agent_calibration():
             "weighted_baseline": 7.5,
             "created_at": now,
         },
+        # Event 6: East Coast port disruption — historical anchor for Baltimore scenario
+        {
+            "id": "calib-006",
+            "event_type": "port_disruption",
+            "region": "East Coast, Maryland",
+            "severity_scored": 8.8,
+            "delay_days_predicted": 77,
+            "supplier_recommended": "Harrisburg Auto Parts",
+            "exposure_calculated": 310000.0,
+            "owner_approved": True,
+            "owner_override": False,
+            "rejection_reason": None,
+            "actual_delay_days": 77,
+            "supplier_delivered": True,
+            "hallucination_score": 0.05,
+            "relevance_score": 0.94,
+            "helpfulness_score": 0.91,
+            "reasoning_score": 0.88,
+            "calibration_applied": True,
+            "weighted_baseline": 8.8,
+            "created_at": (datetime.utcnow() - timedelta(days=45)).strftime("%Y-%m-%dT%H:%M:%S"),
+        },
     ]
     load_rows("agent_calibration", rows)
 
@@ -352,19 +391,19 @@ def seed_tariff_updates():
         {
             "id": "tariff-001",
             "country_of_origin": "China",
-            "product_category": "roofing_materials",
+            "product_category": "auto_parts",
             "tariff_rate_percentage": 25.0,
             "effective_date": str(ten_days_ago),
-            "description": "Section 301 tariff on Chinese steel products - 25% rate effective immediately",
+            "description": "Section 301 tariff on Chinese auto parts — 25% rate, affects Guangzhou Auto Components",
             "created_at": now,
         },
         {
             "id": "tariff-002",
-            "country_of_origin": "Vietnam",
-            "product_category": "roofing_materials",
-            "tariff_rate_percentage": 15.0,
+            "country_of_origin": "South Korea",
+            "product_category": "auto_parts",
+            "tariff_rate_percentage": 12.5,
             "effective_date": str(ten_days_ago),
-            "description": "Retaliatory tariff on Vietnamese imports - 15% rate",
+            "description": "Automotive tariff on Korean auto parts — 12.5% rate, affects Hyundai Mobis Trade",
             "created_at": now,
         },
         {
@@ -373,16 +412,16 @@ def seed_tariff_updates():
             "product_category": "fasteners",
             "tariff_rate_percentage": 12.5,
             "effective_date": str(thirty_days_ago),
-            "description": "Automotive tariff extension to fasteners - 12.5% rate",
+            "description": "Automotive tariff extension to fasteners — 12.5% rate",
             "created_at": now,
         },
         {
             "id": "tariff-004",
             "country_of_origin": "Mexico",
-            "product_category": "roofing_materials",
+            "product_category": "auto_parts",
             "tariff_rate_percentage": 5.0,
             "effective_date": str(thirty_days_ago),
-            "description": "USMCA adjustment tariff - 5% on steel products",
+            "description": "USMCA adjustment tariff — 5% on auto parts from Mexico",
             "created_at": now,
         },
     ]
@@ -392,8 +431,8 @@ def seed_inventory():
     """Seed inventory data by product category."""
     now = datetime.utcnow().isoformat()
     rows = [
-        {"id": "inv-001", "business_id": "demo-business-001", "product_category": "roofing_materials", "inventory_value_usd": 15000.0, "updated_at": now},
-        {"id": "inv-002", "business_id": "demo-business-001", "product_category": "fasteners", "inventory_value_usd": 5000.0, "updated_at": now},
+        {"id": "inv-001", "business_id": "demo-business-001", "product_category": "auto_parts", "inventory_value_usd": 87000.0,  "updated_at": now},
+        {"id": "inv-002", "business_id": "demo-business-001", "product_category": "fasteners",  "inventory_value_usd": 12500.0, "updated_at": now},
     ]
     load_rows("inventory", rows)
 
@@ -424,7 +463,7 @@ def seed_completed_orders():
         {"id": "co-014", "business_id": "demo-business-001", "supplier_id": "alt-001", "order_value_usd": 12000, "ordered_date": d(120),"expected_delivery_date": d(112),"actual_delivery_date": d(112),"delay_days": 0,  "defective_items_count": 0,  "status": "delivered"},
         {"id": "co-015", "business_id": "demo-business-001", "supplier_id": "alt-001", "order_value_usd": 9000,  "ordered_date": d(85), "expected_delivery_date": d(77), "actual_delivery_date": d(76), "delay_days": -1, "defective_items_count": 0,  "status": "delivered"},
         # alt-002 (Atlanta Hardware Co): slight delay history
-        {"id": "co-016", "business_id": "demo-business-001", "supplier_id": "alt-002", "order_value_usd": 8500,  "ordered_date": d(110),"expected_delivery_date": d(99), "actual_delivery_date": d(103),"delay_days": 4,  "defective_items_count": 8,  "status": "delivered"},
+        {"id": "co-016", "business_id": "demo-business-001", "supplier_id": "alt-002", "order_value_usd": 8500,  "ordered_date": d(110),"expected_delivery_date": d(99), "actual_delivery_date": d(99), "delay_days": 0,  "defective_items_count": 2,  "status": "delivered"},
         # alt-004 (Monterrey Industrial MX): good but tariff risk
         {"id": "co-017", "business_id": "demo-business-001", "supplier_id": "alt-004", "order_value_usd": 11000, "ordered_date": d(130),"expected_delivery_date": d(121),"actual_delivery_date": d(121),"delay_days": 0,  "defective_items_count": 2,  "status": "delivered"},
     ]
@@ -435,107 +474,19 @@ def seed_supplier_reviews():
     now = datetime.utcnow().isoformat()
     def ts(days_ago): return (datetime.utcnow() - timedelta(days=days_ago)).isoformat()
     rows = [
-        {"id": "rev-001", "supplier_id": "sup-001", "business_id": "demo-business-001", "rating": 4.2, "review_text": "Good supplier overall, one late shipment last quarter.",      "review_date": ts(30)},
-        {"id": "rev-002", "supplier_id": "sup-001", "business_id": "demo-business-001", "rating": 4.5, "review_text": "Excellent quality and competitive pricing.",                 "review_date": ts(90)},
-        {"id": "rev-003", "supplier_id": "sup-002", "business_id": "demo-business-001", "rating": 4.8, "review_text": "Very reliable, always on time. Highly recommended.",          "review_date": ts(20)},
-        {"id": "rev-004", "supplier_id": "sup-002", "business_id": "demo-business-001", "rating": 4.7, "review_text": "Consistent quality, fast response to issues.",               "review_date": ts(75)},
-        {"id": "rev-005", "supplier_id": "sup-003", "business_id": "demo-business-001", "rating": 3.1, "review_text": "Prices are good but delays are a regular issue.",            "review_date": ts(40)},
-        {"id": "rev-006", "supplier_id": "sup-003", "business_id": "demo-business-001", "rating": 3.5, "review_text": "Mixed experience. Quality control needs improvement.",        "review_date": ts(110)},
-        {"id": "rev-007", "supplier_id": "sup-006", "business_id": "demo-business-001", "rating": 4.9, "review_text": "Best fastener supplier we have worked with, zero defects.",   "review_date": ts(15)},
-        {"id": "rev-008", "supplier_id": "sup-007", "business_id": "demo-business-001", "rating": 4.3, "review_text": "Korean supplier, good quality. Lead time a bit long.",        "review_date": ts(60)},
-        {"id": "rev-009", "supplier_id": "alt-001", "business_id": "demo-business-001", "rating": 4.7, "review_text": "Memphis Steel is exceptional. Zero delays in 2 orders.",     "review_date": ts(45)},
-        {"id": "rev-010", "supplier_id": "alt-002", "business_id": "demo-business-001", "rating": 3.9, "review_text": "Atlanta Hardware was 4 days late but quality was okay.",     "review_date": ts(70)},
-        {"id": "rev-011", "supplier_id": "alt-004", "business_id": "demo-business-001", "rating": 4.4, "review_text": "Monterrey Industrial is cost-effective and punctual.",        "review_date": ts(80)},
+        {"id": "rev-001", "supplier_id": "sup-001", "business_id": "demo-business-001", "rating": 4.2, "review_text": "Bavarian Parts GmbH delivers quality German-engineered components. One late shipment last quarter.",  "review_date": ts(30)},
+        {"id": "rev-002", "supplier_id": "sup-001", "business_id": "demo-business-001", "rating": 4.5, "review_text": "Excellent precision parts, competitive pricing from Germany.",                                      "review_date": ts(90)},
+        {"id": "rev-003", "supplier_id": "sup-002", "business_id": "demo-business-001", "rating": 4.8, "review_text": "Hyundai Mobis Trade is very reliable, always on time. Highly recommended.",                          "review_date": ts(20)},
+        {"id": "rev-004", "supplier_id": "sup-002", "business_id": "demo-business-001", "rating": 4.7, "review_text": "Consistent quality, fast response to issues. Korean automotive standards.",                           "review_date": ts(75)},
+        {"id": "rev-005", "supplier_id": "sup-003", "business_id": "demo-business-001", "rating": 3.1, "review_text": "Guangzhou Auto Components pricing is good but delays are a regular issue.",                           "review_date": ts(40)},
+        {"id": "rev-006", "supplier_id": "sup-003", "business_id": "demo-business-001", "rating": 3.5, "review_text": "Mixed experience with Guangzhou Auto. Quality control needs improvement.",                            "review_date": ts(110)},
+        {"id": "rev-007", "supplier_id": "sup-006", "business_id": "demo-business-001", "rating": 4.9, "review_text": "Best fastener supplier we have worked with, zero defects.",                                           "review_date": ts(15)},
+        {"id": "rev-008", "supplier_id": "sup-007", "business_id": "demo-business-001", "rating": 4.3, "review_text": "Seoul Components delivers solid quality. Lead time from Korea is a bit long.",                        "review_date": ts(60)},
+        {"id": "rev-009", "supplier_id": "alt-001", "business_id": "demo-business-001", "rating": 4.7, "review_text": "Harrisburg Auto Parts is exceptional — 3-day lead time, zero delays in 2 orders.",                   "review_date": ts(45)},
+        {"id": "rev-010", "supplier_id": "alt-002", "business_id": "demo-business-001", "rating": 4.4, "review_text": "Richmond Auto Supply delivered on time with minor quality note on one order.",                        "review_date": ts(70)},
+        {"id": "rev-011", "supplier_id": "alt-004", "business_id": "demo-business-001", "rating": 4.4, "review_text": "Atlanta Parts Supply is cost-effective and punctual. Good domestic option.",                          "review_date": ts(80)},
     ]
     load_rows("supplier_reviews", rows)
-
-def seed_business_002():
-    """Seed demo-business-002: Pacific Rim Electronics Supply Co."""
-    today = datetime.utcnow()
-    now = today.isoformat()
-    def d(days): return (today + timedelta(days=days)).strftime("%Y-%m-%d")
-
-    suppliers = [
-        {"id": "b2-sup-001", "business_id": "demo-business-002", "supplier_name": "TSMC Distribution Partners", "country": "Taiwan",      "product_category": "semiconductors",   "annual_spend_usd": 420000},
-        {"id": "b2-sup-002", "business_id": "demo-business-002", "supplier_name": "Samsung Electronics Trade",  "country": "South Korea", "product_category": "semiconductors",   "annual_spend_usd": 310000},
-        {"id": "b2-sup-003", "business_id": "demo-business-002", "supplier_name": "Foxconn Component Sales",    "country": "Taiwan",      "product_category": "circuit_boards",   "annual_spend_usd": 185000},
-        {"id": "b2-sup-004", "business_id": "demo-business-002", "supplier_name": "LG Display Export Co",       "country": "South Korea", "product_category": "displays",         "annual_spend_usd": 140000},
-        {"id": "b2-sup-005", "business_id": "demo-business-002", "supplier_name": "Japan Display Inc",          "country": "Japan",       "product_category": "displays",         "annual_spend_usd": 95000},
-        {"id": "b2-sup-006", "business_id": "demo-business-002", "supplier_name": "Murata Manufacturing",       "country": "Japan",       "product_category": "semiconductors",   "annual_spend_usd": 72000},
-    ]
-    load_rows(
-        "business_suppliers",
-        suppliers,
-        write_disposition=bigquery.WriteDisposition.WRITE_APPEND,
-    )
-
-    orders = [
-        {"id": "b2-client-001", "business_id": "demo-business-002", "client_id": "client-orion", "product_category": "semiconductors", "quantity": 20000, "order_value_usd": 82000, "required_by_date": d(5),  "status": "pending"},
-        {"id": "b2-client-002", "business_id": "demo-business-002", "client_id": "client-vega",  "product_category": "semiconductors", "quantity": 15000, "order_value_usd": 61500, "required_by_date": d(9),  "status": "pending"},
-        {"id": "b2-client-003", "business_id": "demo-business-002", "client_id": "client-lyra",  "product_category": "circuit_boards", "quantity": 2000,  "order_value_usd": 28000, "required_by_date": d(12), "status": "pending"},
-        {"id": "b2-client-004", "business_id": "demo-business-002", "client_id": "client-nova",  "product_category": "displays",       "quantity": 500,   "order_value_usd": 35000, "required_by_date": d(14), "status": "pending"},
-    ]
-    load_rows(
-        "pending_orders",
-        orders,
-        write_disposition=bigquery.WriteDisposition.WRITE_APPEND,
-    )
-
-    def shipment_row(
-        shipment_id,
-        supplier_id,
-        product_category,
-        quantity,
-        shipment_value_usd,
-        origin_port,
-        destination_port,
-        etd,
-        eta,
-        route,
-    ):
-        return {
-            "id": shipment_id,
-            "business_id": "demo-business-002",
-            "supplier_id": supplier_id,
-            "product_category": product_category,
-            "quantity": quantity,
-            "shipment_value_usd": shipment_value_usd,
-            "origin_port": origin_port,
-            "destination_port": destination_port,
-            "dispatched_date": etd.strftime("%Y-%m-%d"),
-            "expected_arrival_date": eta.strftime("%Y-%m-%d"),
-            "etd": etd.strftime("%Y-%m-%dT%H:%M:%S"),
-            "eta": eta.strftime("%Y-%m-%dT%H:%M:%S"),
-            "journey_time_hours": round((eta - etd).total_seconds() / 3600, 1),
-            "route": route,
-            "status": "in_transit",
-        }
-
-    shipments = [
-        shipment_row("b2-shp-001", "b2-sup-001", "semiconductors", 20000, 82000, "Port of Kaohsiung", "Port of Los Angeles", today - timedelta(days=10), today + timedelta(days=5), "Port of Kaohsiung > Pacific Crossing > Port of Los Angeles"),
-        shipment_row("b2-shp-002", "b2-sup-001", "semiconductors", 15000, 61500, "Port of Kaohsiung", "Port of Los Angeles", today - timedelta(days=8), today + timedelta(days=9), "Port of Kaohsiung > Pacific Crossing > Port of Los Angeles"),
-        shipment_row("b2-shp-003", "b2-sup-003", "circuit_boards", 2000, 28000, "Port of Kaohsiung", "Port of Los Angeles", today - timedelta(days=7), today + timedelta(days=12), "Port of Kaohsiung > Pacific Crossing > Port of Los Angeles"),
-        shipment_row("b2-shp-004", "b2-sup-004", "displays", 500, 35000, "Port of Busan", "Port of Los Angeles", today - timedelta(days=6), today + timedelta(days=14), "Port of Busan > Pacific Crossing > Port of Los Angeles"),
-    ]
-    load_rows(
-        "shipment_timetable",
-        shipments,
-        write_disposition=bigquery.WriteDisposition.WRITE_APPEND,
-    )
-
-    inv = [
-        {"id": "b2-inv-001", "business_id": "demo-business-002", "product_category": "semiconductors", "inventory_value_usd": 22000.0, "updated_at": now},
-        {"id": "b2-inv-002", "business_id": "demo-business-002", "product_category": "circuit_boards", "inventory_value_usd": 8000.0,  "updated_at": now},
-        {"id": "b2-inv-003", "business_id": "demo-business-002", "product_category": "displays",       "inventory_value_usd": 12000.0, "updated_at": now},
-    ]
-    load_rows(
-        "inventory",
-        inv,
-        write_disposition=bigquery.WriteDisposition.WRITE_APPEND,
-    )
-
-    print("✅ demo-business-002 (Pacific Rim Electronics Supply Co.) seeded")
-
 
 def seed_all():
     print("🌱 Seeding BigQuery tables...\n")
@@ -551,7 +502,6 @@ def seed_all():
     seed_inventory()
     seed_completed_orders()
     seed_supplier_reviews()
-    seed_business_002()
     print("\n✅ ALL SEED DATA LOADED — BigQuery ready")
 
 

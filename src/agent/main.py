@@ -6,9 +6,10 @@ import sys
 from dotenv import load_dotenv
 
 from src.agent.runtime import run_agent_cycle_async
-
+from src.agent.model_config import configure_llm_provider
 
 load_dotenv()
+configure_llm_provider()
 
 
 def validate_environment() -> None:

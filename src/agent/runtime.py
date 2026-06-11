@@ -15,6 +15,7 @@ from google.adk.events import event as adk_event
 from google.adk.runners import Runner
 from opentelemetry.trace import SpanKind, StatusCode
 
+from src.agent.model_config import configure_llm_provider
 from src.agent.agents import MODEL, create_root_agent
 from src.agent.business_registry import get_business
 from src.agent.observability import (
@@ -32,6 +33,12 @@ from src.agent.freshness_agent import __all__ as _FRESHNESS_TOOL_NAMES
 FRESHNESS_AGENT_TOOLS: frozenset[str] = frozenset(_FRESHNESS_TOOL_NAMES)
 
 APP_NAME = "supply-chain-intelligence"
+
+# When enabled (default), a single simulation runs the deterministic pipeline
+# with exactly ONE model call instead of the ~25-40 calls of the multi-agent
+# ADK delegation. Set OPTIMIZED_PIPELINE=0 to fall back to the legacy agent flow.
+def _optimized_enabled() -> bool:
+    return os.getenv("OPTIMIZED_PIPELINE", "1").strip().lower() not in ("0", "false", "no", "off")
 
 _MAX_PROBE_RETRIES = 3
 _PROBE_RETRY_BASE_DELAY = 2.0  # seconds; doubles each attempt
@@ -65,6 +72,7 @@ def _get_session_service():
 
 def _configure_google_credentials() -> None:
     """ADK reads GOOGLE_API_KEY; preserve the project's GEMINI_API_KEY config."""
+    # configure_llm_provider()
     if not os.getenv("GOOGLE_API_KEY") and os.getenv("GEMINI_API_KEY"):
         os.environ["GOOGLE_API_KEY"] = os.environ["GEMINI_API_KEY"]
 
@@ -86,15 +94,15 @@ def _validate_result(result: dict, business_id: str) -> dict:
         flags.append("alert_fired=False despite positive exposure and affected suppliers — overriding to True")
         result["alert_fired"] = True
 
-    # --- severity_score: must be in [0.0, 1.0] ---
+    # --- severity_score: must be in [0.0, 10.0] (matches AlertRecord + dashboard scale) ---
     score = result.get("severity_score")
     if score is not None:
         if not isinstance(score, (int, float)):
             flags.append(f"severity_score is not numeric ({score!r}) — resetting to 0")
             result["severity_score"] = 0
-        elif not (0.0 <= float(score) <= 1.0):
-            clamped = max(0.0, min(1.0, float(score)))
-            flags.append(f"severity_score={score} out of [0,1] — clamped to {clamped}")
+        elif not (0.0 <= float(score) <= 10.0):
+            clamped = max(0.0, min(10.0, float(score)))
+            flags.append(f"severity_score={score} out of [0,10] — clamped to {clamped}")
             result["severity_score"] = clamped
 
     # --- alert_fired=True requires a stable disruption id ---
@@ -218,6 +226,63 @@ def _save_cycle_trace(
         _log.warning("[TRACE] Phoenix trace write failed (non-fatal): %s", exc)
 
 
+async def _run_optimized_cycle_async(
+    business_id: str,
+    session_id: str,
+    log_callback=None,
+) -> dict | None:
+    """Single-model-call path: deterministic pipeline + one synthesis call.
+
+    Produces the same result shape as the ADK path (validated SupplyChainAnalysis
+    + tool_calls + session_id), runs the same _validate_result guard, emits the
+    same span/trace, and persists the same cycle summary.
+    """
+    from src.agent.pipeline import run_pipeline
+
+    tracer = get_tracer()
+    _cycle_start = time.monotonic()
+    try:
+        with tracer.start_as_current_span("agent_cycle", kind=SpanKind.INTERNAL) as span:
+            span.set_attribute("business_id", business_id)
+            span.set_attribute("session_id", session_id)
+            span.set_attribute("model", MODEL)
+            span.set_attribute("pipeline", "deterministic_single_call")
+
+            result, tool_calls, usage = await run_pipeline(business_id, log_callback)
+            result["tool_calls"] = tool_calls
+            result["session_id"] = session_id
+            result["usage"] = usage
+            result = _validate_result(result, business_id)
+
+            span.set_attribute("tool_call_count", len(tool_calls))
+            span.set_attribute("model_calls", usage.get("model_calls", 0))
+            span.set_attribute("output.value", json.dumps({
+                "alert_fired":    result.get("alert_fired", False),
+                "severity_score": result.get("severity_score", 0),
+                "disruption_id":  (result.get("disruption") or {}).get("id"),
+                "model_calls":    usage.get("model_calls", 0),
+            }))
+            span.set_status(StatusCode.OK)
+
+            latency_ms = (time.monotonic() - _cycle_start) * 1000
+            asyncio.ensure_future(
+                asyncio.to_thread(
+                    _save_cycle_trace,
+                    session_id,
+                    business_id,
+                    tool_calls,
+                    True,
+                    latency_ms,
+                    result.get("severity_score", 0),
+                    result.get("alert_fired", False),
+                )
+            )
+            return result
+    except Exception as exc:
+        _log.error("[CYCLE] Optimized pipeline failed for business=%s: %s", business_id, exc)
+        return {"error": f"pipeline_failure: {exc}"}
+
+
 async def run_agent_cycle_async(
     business_id: str = "demo-business-001",
     log_callback=None,
@@ -227,6 +292,10 @@ async def run_agent_cycle_async(
     _configure_google_credentials()
     business = get_business(business_id)
     session_id = session_id or f"{business_id}-{uuid.uuid4().hex}"
+
+    if _optimized_enabled():
+        return await _run_optimized_cycle_async(business_id, session_id, log_callback)
+
     session_service = _get_session_service()
     await session_service.create_session(
         app_name=APP_NAME,
@@ -256,6 +325,9 @@ async def run_agent_cycle_async(
 
     token = set_log_callback(log_callback)
     tool_calls: list[dict[str, Any]] = []
+    call_map: dict[str, dict[str, Any]] = {}
+    start_times: dict[str, float] = {}      # call_id -> time.monotonic()
+    MAX_RESPONSE_LEN = 5000
     final_text = ""
     _cycle_start = time.monotonic()
     tracer = get_tracer()
@@ -278,8 +350,34 @@ async def run_agent_cycle_async(
                 new_message=message,
             ):
                 for call in event.get_function_calls():
-                    args = dict(call.args) if call.args else {}
-                    tool_calls.append({"tool": call.name, "args": args})
+                    entry: dict[str, Any] = {
+                        "tool": call.name,
+                        "args": dict(call.args) if call.args else {},
+                        "author": event.author,          # which agent invoked it → delegation
+                        "response": None,
+                        "started_at": datetime.now(timezone.utc).isoformat(),
+                        "duration_ms": None,
+                    }
+                    tool_calls.append(entry)
+                    call_id = getattr(call, "id", None)
+                    if call_id:
+                        call_map[call_id] = entry
+                        start_times[call_id] = time.monotonic()
+
+                # Guard: get_function_responses() may not exist on all ADK versions
+                if hasattr(event, "get_function_responses"):
+                    for resp in event.get_function_responses():
+                        resp_id = getattr(resp, "id", None)
+                        if resp_id and resp_id in call_map:
+                            raw = resp.response if hasattr(resp, "response") else str(resp)
+                            # Never store full payloads — cap to avoid freezing React on huge rows
+                            serialized = raw if isinstance(raw, str) else json.dumps(raw, default=str)
+                            call_map[resp_id]["response"] = serialized[:MAX_RESPONSE_LEN]
+                            if resp_id in start_times:
+                                call_map[resp_id]["duration_ms"] = int(
+                                    (time.monotonic() - start_times[resp_id]) * 1000
+                                )
+
                 if event.author == "SupplyChainIntelligenceAgent":
                     text = _content_text(event.content)
                     if text and event.is_final_response():

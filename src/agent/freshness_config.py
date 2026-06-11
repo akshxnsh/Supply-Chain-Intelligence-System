@@ -34,7 +34,7 @@ FRESHNESS_TABLES: dict[str, FreshnessTableConfig] = {
     "disruption_events": FreshnessTableConfig(
         table_name="disruption_events",
         connector_id="baritone_tadpole",
-        max_age_minutes=1,
+        max_age_minutes=60,
     ),
     "inventory": FreshnessTableConfig(
         table_name="inventory",

@@ -93,7 +93,7 @@ def query_alternative_suppliers(product_category: str,
                                   exclude_country: str) -> list[dict]:
     sql = f"""
         SELECT id, name, country, product_category,
-               moq, lead_time_days, unit_price_usd, reliability_score
+               moq, lead_time_days, unit_price_usd, reliability_score, geographic_risk_score
         FROM `{PROJECT_ID}.{DATASET}.alternative_suppliers`
         WHERE product_category = @product_category
         AND country != @exclude_country
