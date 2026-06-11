@@ -16,11 +16,23 @@ from src.tools.fivetran_mcp_client import (
 from src.tools.fivetran_mcp_client import trigger_connector_sync
 
 
+__all__ = [
+    "check_bigquery_table_freshness",
+    "identify_stale_tables",
+    "refresh_connector",
+    "get_connector_status",
+    "wait_for_connector_completion",
+    "sync_postgres_table_to_bigquery",
+    "refresh_stale_table",
+    "refresh_all_stale_tables",
+]
+
 TERMINAL_CONNECTOR_STATUSES = {
     "connected",
     "completed",
     "idle",
     "ready",
+    "scheduled",
     "success",
     "succeeded",
 }
@@ -106,34 +118,10 @@ async def get_connector_status(table_name: str) -> str:
 
 
 def _extract_connector_status(result: dict[str, Any]) -> str:
-    status = _find_status_value(result.get("result"))
-    if status:
-        return status
-    return "unknown"
-
-
-def _find_status_value(payload: Any) -> str | None:
-    if isinstance(payload, dict):
-        for key in ("sync_state", "status", "state"):
-            value = payload.get(key)
-            if isinstance(value, str) and value:
-                return str(value)
-            if isinstance(value, dict):
-                nested = _find_status_value(value)
-                if nested:
-                    return nested
-        for value in payload.values():
-            nested = _find_status_value(value)
-            if nested:
-                return nested
-    if isinstance(payload, list):
-        for item in payload:
-            nested = _find_status_value(item)
-            if nested:
-                return nested
-    if isinstance(payload, str):
-        return payload
-    return None
+    try:
+        return result["result"]["data"]["status"]["sync_state"]
+    except (KeyError, TypeError):
+        return "unknown"
 
 
 async def wait_for_connector_completion(

@@ -300,6 +300,69 @@ def approve_action(req: ApproveActionRequest, business_id: str = Query(default=D
         "supplier_name": req.supplier_name,
     }
 
+# ── Freshness endpoints ────────────────────────────────────────────────────────
+
+@app.get("/api/freshness")
+async def get_freshness():
+    """Return freshness status for all configured BigQuery tables."""
+    from src.agent.freshness_agent import check_bigquery_table_freshness
+    try:
+        rows = json.loads(await check_bigquery_table_freshness())
+        total = len(rows)
+        fresh = sum(1 for r in rows if not r["is_stale"])
+        return {
+            "tables": rows,
+            "fresh_count": fresh,
+            "total_count": total,
+            "freshness_pct": round(fresh / total * 100 if total else 100, 1),
+        }
+    except Exception as e:
+        return {"tables": [], "error": str(e), "freshness_pct": 0}
+
+
+@app.post("/api/freshness/refresh/{table_name}")
+async def refresh_table(table_name: str):
+    """Trigger a Fivetran refresh for a single configured table."""
+    from src.agent.freshness_config import FRESHNESS_TABLES
+    from src.agent.freshness_agent import refresh_stale_table
+    if table_name not in FRESHNESS_TABLES:
+        raise HTTPException(status_code=404, detail=f"Unknown table: {table_name}")
+    try:
+        result = json.loads(await refresh_stale_table(table_name))
+        return {"success": True, "result": result}
+    except Exception as e:
+        return {"success": False, "error": str(e)}
+
+
+# ── Latest analysis (business data endpoint — not the developer trace) ─────────
+
+@app.get("/api/latest-analysis")
+def get_latest_analysis(business_id: str = Query(default=DEFAULT_BIZ)):
+    """Return the last SupplyChainAnalysis result for a business — for UI consumption.
+
+    Dashboard, Risk Details, and Alerts consume this.
+    /api/trace remains developer-only.
+    """
+    state = _get_sim_state(business_id)
+    raw = state.last_result or {}
+    disruption = raw.get("disruption") or {}
+    return {
+        "has_result": bool(raw),
+        "business_id": business_id,
+        "severity_score": raw.get("severity_score", 0),
+        "calibration_confidence": raw.get("calibration_confidence", 0),
+        "alert_fired": raw.get("alert_fired", False),
+        "black_swan_detected": raw.get("black_swan_detected", False),
+        "exposure_usd": raw.get("exposure_usd", 0),
+        "headline": disruption.get("headline") or disruption.get("summary", ""),
+        "disruption_type": disruption.get("type") or disruption.get("event_type", ""),
+        "disruption_region": disruption.get("region", ""),
+        "signals_detected": raw.get("signals_detected", []),
+        "affected_suppliers": raw.get("affected_suppliers", []),
+        "suggested_alternatives": raw.get("suggested_alternatives", []),
+    }
+
+
 if __name__ == "__main__":
     import uvicorn
     uvicorn.run("src.dashboard.api:app", host="0.0.0.0",

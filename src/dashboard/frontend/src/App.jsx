@@ -3,17 +3,19 @@ import axios from "axios"
 import Sidebar from "./components/Sidebar"
 import AlertsScreen from "./screens/AlertsScreen"
 import TraceScreen from "./screens/TraceScreen"
-import SupplierHealthScreen from "./screens/SupplierHealthScreen"
-import OverviewScreen from "./screens/OverviewScreen"
+import DashboardScreen from "./screens/DashboardScreen"
+import RiskDetailsScreen from "./screens/RiskDetailsScreen"
+import FreshnessScreen from "./screens/FreshnessScreen"
 
 const API = "http://127.0.0.1:8000"
 const DEFAULT_BIZ = "demo-business-001"
 
 const SCREEN_TITLES = {
-  overview: "Overview",
-  alerts:   "Active Alerts",
-  trace:    "Agent Simulation",
-  health:   "Supplier Health",
+  dashboard: "Dashboard",
+  risks:     "Active Risks",
+  freshness: "Freshness Monitor",
+  alerts:    "Active Alerts",
+  console:   "Agent Console",
 }
 
 function SunIcon() {
@@ -43,7 +45,7 @@ function MoonIcon() {
 }
 
 export default function App() {
-  const [screen, setScreen]         = useState("trace")
+  const [screen, setScreen]         = useState("dashboard")
   const [businesses, setBusinesses] = useState([])
   const [businessId, setBusinessId] = useState(DEFAULT_BIZ)
   const [loading, setLoading]       = useState(false)
@@ -51,6 +53,7 @@ export default function App() {
   const [error, setError]           = useState(null)
   const [collapsed, setCollapsed]   = useState(false)
   const [isDark, setIsDark]         = useState(true)
+  const [refreshKey, setRefreshKey] = useState(0)
 
   useEffect(() => {
     document.documentElement.classList.toggle("light", !isDark)
@@ -69,11 +72,14 @@ export default function App() {
     setLoading(true)
     setResult(null)
     setError(null)
-    setScreen("trace")
+    setScreen("console")
     try {
       const res = await axios.post(`${API}/api/simulate?business_id=${businessId}`)
       if (res.data.success === false) setError(res.data.error || "Agent failed")
-      else setResult(res.data)
+      else {
+        setResult(res.data)
+        setRefreshKey(k => k + 1)
+      }
     } catch (e) {
       setError(e.response?.data?.error || e.message || "Backend not running")
     } finally {
@@ -87,6 +93,7 @@ export default function App() {
     setError(null)
   }
 
+  const businessName = businesses.find(b => b.id === businessId)?.name || businessId
   const sidebarWidth = collapsed ? "var(--sidebar-width-collapsed)" : "var(--sidebar-width)"
 
   return (
@@ -106,7 +113,6 @@ export default function App() {
         transition: "margin-left 0.25s ease",
       }}>
 
-        {/* Topbar — same height as sidebar logo row */}
         <header style={{
           borderBottom: "1px solid var(--border)",
           padding: "0 24px",
@@ -141,7 +147,6 @@ export default function App() {
               ))}
             </select>
 
-            {/* Light / dark toggle */}
             <button
               onClick={() => setIsDark(d => !d)}
               title={isDark ? "Switch to light mode" : "Switch to dark mode"}
@@ -173,9 +178,24 @@ export default function App() {
         </header>
 
         <main style={{ flex: 1, overflowY: "auto" }}>
-          {screen === "overview" && <OverviewScreen />}
-          {screen === "alerts"   && <AlertsScreen businessId={businessId} />}
-          {screen === "trace"    && (
+          {screen === "dashboard" && (
+            <DashboardScreen
+              businessId={businessId}
+              businessName={businessName}
+              onNavigate={setScreen}
+              refreshKey={refreshKey}
+            />
+          )}
+          {screen === "risks" && (
+            <RiskDetailsScreen
+              businessId={businessId}
+              onSimulate={() => { setScreen("console"); simulate() }}
+              refreshKey={refreshKey}
+            />
+          )}
+          {screen === "freshness" && <FreshnessScreen />}
+          {screen === "alerts"    && <AlertsScreen businessId={businessId} />}
+          {screen === "console"   && (
             <TraceScreen
               businessId={businessId}
               loading={loading}
@@ -184,7 +204,6 @@ export default function App() {
               error={error}
             />
           )}
-          {screen === "health"   && <SupplierHealthScreen businessId={businessId} />}
         </main>
 
       </div>

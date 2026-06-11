@@ -1,8 +1,9 @@
 const NAV = [
-  { id: "overview", label: "Overview",        Icon: IconGrid },
-  { id: "alerts",   label: "Alerts",          Icon: IconBell },
-  { id: "trace",    label: "Agent Trace",     Icon: IconActivity },
-  { id: "health",   label: "Supplier Health", Icon: IconBarChart },
+  { id: "dashboard", label: "Dashboard",     Icon: IconGrid },
+  { id: "risks",     label: "Active Risks",  Icon: IconAlertTriangle },
+  { id: "freshness", label: "Freshness",     Icon: IconClock },
+  { id: "alerts",    label: "Alerts",        Icon: IconBell },
+  { id: "console",   label: "Agent Console", Icon: IconActivity },
 ]
 
 function IconGrid({ size = 17, color = "currentColor" }) {
@@ -44,6 +45,27 @@ function IconBarChart({ size = 17, color = "currentColor" }) {
       <line x1="12" y1="20" x2="12" y2="4" />
       <line x1="6"  y1="20" x2="6"  y2="14" />
       <line x1="2"  y1="20" x2="22" y2="20" />
+    </svg>
+  )
+}
+
+function IconAlertTriangle({ size = 17, color = "currentColor" }) {
+  return (
+    <svg width={size} height={size} viewBox="0 0 24 24" fill="none"
+      stroke={color} strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+      <path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z" />
+      <line x1="12" y1="9" x2="12" y2="13" />
+      <line x1="12" y1="17" x2="12.01" y2="17" />
+    </svg>
+  )
+}
+
+function IconClock({ size = 17, color = "currentColor" }) {
+  return (
+    <svg width={size} height={size} viewBox="0 0 24 24" fill="none"
+      stroke={color} strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+      <circle cx="12" cy="12" r="10" />
+      <polyline points="12 6 12 12 16 14" />
     </svg>
   )
 }

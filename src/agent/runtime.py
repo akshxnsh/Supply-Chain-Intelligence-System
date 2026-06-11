@@ -28,7 +28,31 @@ from src.agent.session import create_session_service
 from src.ingestion.bq_client import check_duplicate_alert, query_business_suppliers, save_alert, save_phoenix_trace_summary
 
 
+from src.agent.freshness_agent import __all__ as _FRESHNESS_TOOL_NAMES
+FRESHNESS_AGENT_TOOLS: frozenset[str] = frozenset(_FRESHNESS_TOOL_NAMES)
+
 APP_NAME = "supply-chain-intelligence"
+
+_MAX_PROBE_RETRIES = 3
+_PROBE_RETRY_BASE_DELAY = 2.0  # seconds; doubles each attempt
+
+
+def _is_transient_error(exc: BaseException) -> bool:
+    """Return True for Gemini/Google API errors worth retrying (503, 429, 504)."""
+    try:
+        from google.genai.errors import ServerError
+        if isinstance(exc, ServerError):
+            return True
+    except ImportError:
+        pass
+    try:
+        from google.api_core import exceptions as _gapi_exc
+        if isinstance(exc, (_gapi_exc.ServiceUnavailable, _gapi_exc.ResourceExhausted, _gapi_exc.DeadlineExceeded)):
+            return True
+    except ImportError:
+        pass
+    msg = str(exc).lower()
+    return any(tok in msg for tok in ("503", "unavailable", "high demand", "rate limit", "resource exhausted", "deadline exceeded"))
 _session_service = None
 
 
@@ -347,6 +371,131 @@ def run_agent_cycle(
             log_callback=log_callback,
         )
     )
+
+
+async def run_probe_async(
+    prompt: str,
+    business_id: str = "demo-business-001",
+    session_id: str | None = None,
+) -> dict[str, Any]:
+    """Send a free-text prompt through the full root-agent stack and return tool call trace.
+
+    Skips _parse_result, _validate_result, and _save_cycle_trace — no BigQuery writes.
+    Retries up to _MAX_PROBE_RETRIES times on transient Gemini errors (503, 429, 504).
+    Tool calls are accumulated across retries so partial evidence is never lost.
+    passed=True if any FreshnessAgent tool ran, even if a 503 followed.
+    """
+    _configure_google_credentials()
+    business = get_business(business_id)
+    base_session_id = session_id or f"probe-{business_id}-{uuid.uuid4().hex}"
+    session_service = _get_session_service()
+
+    all_tool_calls: list[dict[str, Any]] = []
+    last_error: str | None = None
+    final_text = ""
+    attempt = 1
+
+    for attempt in range(1, _MAX_PROBE_RETRIES + 1):
+        current_session_id = base_session_id if attempt == 1 else f"probe-{business_id}-{uuid.uuid4().hex}"
+        await session_service.create_session(
+            app_name=APP_NAME,
+            user_id=business_id,
+            session_id=current_session_id,
+            state={
+                "business_id": business_id,
+                "business_name": business["name"],
+                "cycle_started_at": datetime.now(timezone.utc).isoformat(),
+            },
+        )
+
+        runner = Runner(
+            agent=create_root_agent(),
+            app_name=APP_NAME,
+            session_service=session_service,
+        )
+        message = adk_event.types.Content(
+            role="user",
+            parts=[adk_event.types.Part(text=prompt)],
+        )
+
+        call_map: dict[str, dict[str, Any]] = {}
+        attempt_tool_calls: list[dict[str, Any]] = []
+
+        try:
+            async for event in runner.run_async(
+                user_id=business_id,
+                session_id=current_session_id,
+                new_message=message,
+            ):
+                for call in event.get_function_calls():
+                    entry: dict[str, Any] = {
+                        "tool": call.name,
+                        "args": dict(call.args) if call.args else {},
+                        "response": None,
+                    }
+                    attempt_tool_calls.append(entry)
+                    call_id = getattr(call, "id", None)
+                    if call_id:
+                        call_map[call_id] = entry
+
+                # Guard: get_function_responses() may not exist on all ADK versions
+                if hasattr(event, "get_function_responses"):
+                    for resp in event.get_function_responses():
+                        resp_id = getattr(resp, "id", None)
+                        if resp_id and resp_id in call_map:
+                            call_map[resp_id]["response"] = (
+                                resp.response if hasattr(resp, "response") else str(resp)
+                            )
+
+                if event.author == "SupplyChainIntelligenceAgent":
+                    text = _content_text(event.content)
+                    if text and event.is_final_response():
+                        final_text = text
+
+            # Fallback: display only — never affects PASS/FAIL
+            if not final_text:
+                session = await session_service.get_session(
+                    app_name=APP_NAME, user_id=business_id, session_id=current_session_id
+                )
+                if session:
+                    for key in ("freshness_analysis", "final_analysis"):
+                        val = session.state.get(key)
+                        if val:
+                            final_text = val if isinstance(val, str) else json.dumps(val)
+                            break
+
+            all_tool_calls.extend(attempt_tool_calls)
+            break  # success
+
+        except Exception as exc:
+            all_tool_calls.extend(attempt_tool_calls)  # preserve partial trace
+            last_error = f"{type(exc).__name__}: {exc}"
+            if _is_transient_error(exc) and attempt < _MAX_PROBE_RETRIES:
+                delay = _PROBE_RETRY_BASE_DELAY * (2 ** (attempt - 1))
+                _log.warning(
+                    "[PROBE] Transient error on attempt %s/%s: %s — retrying in %.0fs",
+                    attempt, _MAX_PROBE_RETRIES, exc, delay,
+                )
+                await asyncio.sleep(delay)
+                continue
+            break  # non-transient or retries exhausted
+
+        finally:
+            await runner.close()
+
+    freshness_calls = [tc for tc in all_tool_calls if tc["tool"] in FRESHNESS_AGENT_TOOLS]
+    result: dict[str, Any] = {
+        "prompt": prompt,
+        "response": final_text,
+        "tool_calls": all_tool_calls,
+        "session_id": base_session_id,
+        "passed": bool(freshness_calls),  # True even if 503 fired after tools ran
+        "freshness_tool_calls": freshness_calls,
+    }
+    if last_error:
+        result["error"] = last_error
+        result["attempts"] = attempt
+    return result
 
 
 def _persist_alert_if_new(result: dict, business_id: str) -> None:

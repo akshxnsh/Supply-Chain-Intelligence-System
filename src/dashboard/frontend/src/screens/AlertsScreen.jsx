@@ -241,6 +241,7 @@ export default function AlertsScreen({ businessId }) {
   const [error, setError] = useState(null);
   const [page, setPage] = useState(0);
   const [hasMore, setHasMore] = useState(true);
+  const [tab, setTab] = useState("all");
   const PAGE_SIZE = 10;
 
   const fetchAlerts = useCallback(async (pageNum = 0, append = false) => {
@@ -287,6 +288,10 @@ export default function AlertsScreen({ businessId }) {
   };
 
   const totalExposure = alerts.reduce((sum, a) => sum + (a.exposure_usd || 0), 0);
+
+  const filteredAlerts = tab === "all" ? alerts
+    : tab === "open" ? alerts.filter(a => a.status === "active")
+    : alerts.filter(a => a.status === "acknowledged" || a.status === "resolved");
 
   const formatTime = (date) => {
     if (!date) return "";
@@ -365,6 +370,44 @@ export default function AlertsScreen({ businessId }) {
           </div>
         </div>
 
+        {/* Status tabs */}
+        <div style={{ display: "flex", gap: 6, marginBottom: 20 }}>
+          {[
+            { id: "all",      label: "All",      count: alerts.length },
+            { id: "open",     label: "Open",     count: alerts.filter(a => a.status === "active").length },
+            { id: "resolved", label: "Resolved", count: alerts.filter(a => a.status === "acknowledged" || a.status === "resolved").length },
+          ].map(t => (
+            <button
+              key={t.id}
+              onClick={() => setTab(t.id)}
+              style={{
+                background: tab === t.id ? "rgba(59,130,246,0.15)" : "transparent",
+                border: `1px solid ${tab === t.id ? "rgba(59,130,246,0.5)" : "var(--border)"}`,
+                borderRadius: 20,
+                color: tab === t.id ? "#60a5fa" : "var(--text-secondary)",
+                fontSize: 13,
+                fontWeight: tab === t.id ? 600 : 400,
+                padding: "5px 14px",
+                cursor: "pointer",
+                display: "flex",
+                alignItems: "center",
+                gap: 6,
+              }}
+            >
+              {t.label}
+              <span style={{
+                background: tab === t.id ? "rgba(59,130,246,0.2)" : "var(--bg-card)",
+                borderRadius: 10,
+                fontSize: 11,
+                padding: "1px 6px",
+                color: tab === t.id ? "#60a5fa" : "var(--text-muted)",
+              }}>
+                {t.count}
+              </span>
+            </button>
+          ))}
+        </div>
+
         {/* Error banner */}
         {error && (
           <div
@@ -394,7 +437,7 @@ export default function AlertsScreen({ businessId }) {
         {/* Content */}
         {!loading && (
           <>
-            {alerts.length === 0 ? (
+            {filteredAlerts.length === 0 ? (
               /* Empty state */
               <div
                 style={{
@@ -445,7 +488,7 @@ export default function AlertsScreen({ businessId }) {
                   }}
                 >
                   <span style={{ color: "var(--text-secondary)", fontWeight: 500 }}>
-                    {alerts.length} alert{alerts.length !== 1 ? "s" : ""}
+                    {filteredAlerts.length} alert{filteredAlerts.length !== 1 ? "s" : ""}
                   </span>
                   {" · "}
                   <span style={{ color: "var(--text-secondary)", fontWeight: 500 }}>
@@ -455,7 +498,7 @@ export default function AlertsScreen({ businessId }) {
                 </div>
 
                 {/* Alert cards */}
-                {alerts.map((alert) => (
+                {filteredAlerts.map((alert) => (
                   <AlertCard
                     key={alert.id}
                     alert={alert}

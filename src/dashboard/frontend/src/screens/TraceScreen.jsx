@@ -209,6 +209,19 @@ export default function TraceScreen({ businessId, loading, onSimulate, result, e
   return (
     <div style={{ padding: "40px 32px", maxWidth: 960, margin: "0 auto" }}>
 
+      <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 28 }}>
+        <h1 style={{ fontSize: 22, fontWeight: 700, color: "var(--text-primary)", margin: 0 }}>
+          Agent Console
+        </h1>
+        <span style={{
+          background: "rgba(139,92,246,0.2)", color: "#8b5cf6",
+          border: "1px solid rgba(139,92,246,0.4)", borderRadius: 6,
+          padding: "2px 8px", fontSize: 11, fontWeight: 600,
+        }}>
+          DEV
+        </span>
+      </div>
+
       {error && (
         <div style={{
           background: "#1a0a0a", border: "1px solid var(--accent-red)",

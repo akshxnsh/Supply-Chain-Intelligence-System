@@ -5,6 +5,7 @@ from google.adk.agents import LlmAgent
 
 from src.agent.business_registry import get_business
 from src.agent.fivetran import create_fivetran_toolset
+from src.agent.freshness_config import FRESHNESS_TABLES as _FRESHNESS_TABLES
 from src.agent.freshness_agent import (
     check_bigquery_table_freshness,
     get_connector_status,
@@ -48,6 +49,8 @@ from src.agent.tools import (
 
 
 MODEL = os.getenv("MODEL_NAME", "gemini-2.0-flash").removeprefix("models/")
+
+_VALID_FRESHNESS_TABLES = ", ".join(sorted(_FRESHNESS_TABLES.keys()))
 
 
 def _instruction(extra: str) -> Callable:
@@ -203,7 +206,8 @@ def create_root_agent() -> LlmAgent:
             "be stale. Identify stale tables, map each table to its configured connector, "
             "request connector refresh through the Fivetran MCP interface, wait for completion, "
             "run the PostgreSQL-to-BigQuery sync for that table, and verify freshness after "
-            "sync. Use the MCP-backed freshness tools and do not call Fivetran REST APIs."
+            f"sync. Use the MCP-backed freshness tools and do not call Fivetran REST APIs. "
+            f"Valid table names are: {_VALID_FRESHNESS_TABLES}."
         ),
         tools=[
             check_bigquery_table_freshness,
@@ -237,7 +241,7 @@ def create_root_agent() -> LlmAgent:
             "You are the root supply-chain intelligence coordinator. Delegate "
             "freshness checks, disruption analysis, supplier risk, calibration, "
             "and procurement work to the specialist agents. Use the FreshnessAgent "
-            "when inventory, order, shipment, or supplier data may be stale. "
+            f"when source data may be stale — valid table names are: {_VALID_FRESHNESS_TABLES}. "
             "Freshness refreshes must go through the configured Fivetran MCP server. Fire an "
             "alert whenever at least one pending shipment is affected. Do not "
             "fire an alert when there is no affected shipment and no financial "
