@@ -10,13 +10,14 @@ load_dotenv()
 PROJECT_ID = os.getenv("GOOGLE_CLOUD_PROJECT", "akshxnsh-supplychain")
 DATASET = "supply_chain"
 
-KEY_FILE = os.getenv(
-    "GOOGLE_APPLICATION_CREDENTIALS",
-    os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "..", "gcp-key.json"))
-)
+import json
 
-if os.path.exists(KEY_FILE):
-    credentials = service_account.Credentials.from_service_account_file(KEY_FILE)
+credentials_json = os.getenv("GOOGLE_CREDENTIALS_JSON")
+
+if credentials_json:
+    credentials = service_account.Credentials.from_service_account_info(
+        json.loads(credentials_json)
+    )
     client = bigquery.Client(project=PROJECT_ID, credentials=credentials)
 else:
     client = bigquery.Client(project=PROJECT_ID)
