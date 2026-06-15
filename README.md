@@ -307,3 +307,36 @@ First page record count: 500
 Number of pages: unknown from this SDK response shape
 Final Total Assets currently shown: 500
 If you want, I’ll now replace the current dashboard count path with a true Dataverse-supported count retrieval approach that does not rely on rows.length, and I’ll update category/usage calculations to use a full-result-safe pattern too.
+
+
+
+Yes. Replace the current implementation.
+
+Do not calculate Total Assets, category counts, or Asset Usage counts from rows.length or from the first page returned by retrieveMultipleRecordsAsync().
+
+Implement a true full-dataset solution.
+
+Requirements:
+
+1. Determine the actual count of records in cr9a7_assetsstockkharkhoda where:
+   
+   - cr9a7_assetstore = "Kharkhoda Store"
+     OR
+   - cr9a7_assetstore = "Kharkhoda New Asset Store"
+
+2. Follow all available Dataverse pages until the complete filtered result set is obtained, or use a Dataverse-supported server-side count mechanism if available.
+
+3. Ensure Total Assets reflects the complete Kharkhoda dataset.
+
+4. Ensure category cards are generated from the complete Kharkhoda dataset, not the first page.
+
+5. Ensure Asset Usage breakdowns are generated from the complete Kharkhoda dataset, not the first page.
+
+6. After implementing, report:
+   
+   - Actual Kharkhoda asset count
+   - Number of records processed
+   - Whether pagination or server-side count was used
+   - First 5 category names and their counts
+
+7. If the SDK does not expose @odata.nextLink or pagination metadata, inspect the underlying Dataverse response and implement the correct supported method instead of returning rows.length.
