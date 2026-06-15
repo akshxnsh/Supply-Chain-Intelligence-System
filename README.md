@@ -206,3 +206,15 @@ Requirements:
 - Show appropriate messages when no records or matching assets are found.
 
 The application must be fully data-driven and automatically adapt to new categories, asset usage values, and future data updates without requiring manual changes.
+
+The dashboard always shows exactly 500 total assets. Review fetchKharkhodaAssetTotal() and all Dataverse queries.
+
+Check whether the Dataverse API is returning paged results and whether only the first page is being counted.
+
+Do not calculate totals using rows.length from a paginated query.
+
+Retrieve the true count of all records where Asset Store is either "Kharkhoda Store" or "Kharkhoda New Asset Store" using a server-side Dataverse count query.
+
+Also verify that category counts and Asset Usage counts are calculated from the complete filtered dataset rather than only the first returned page of records.
+
+If pagination is being used, automatically follow all nextLink pages or use Dataverse aggregate/count functionality so counts represent all matching records.
