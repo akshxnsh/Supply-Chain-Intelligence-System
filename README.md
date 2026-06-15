@@ -186,35 +186,28 @@ python -m pytest -q
 This project is licensed under the MIT License. See `LICENSE` for details.
 
 
+The current implementation is failing after the pagination fix.
 
+Do not use custom pagination logic, rows.length from fetched records, client-side aggregation, local collections, OData aggregate queries, or complex Dataverse count/groupby queries.
 
-Build a Power Apps dashboard named "Asset Dashboard" using the connected Dataverse table containing IT asset inventory data.
-
-The table contains 62,000+ records for multiple plants and stores. For this application, treat records where Asset Store is "Kharkhoda Store" or "Kharkhoda New Asset Store" as a single logical store named "Kharkhoda". Combine both values in all calculations and do not display or analyze them separately.
+Start over from the connected Dataverse table and rebuild the data layer using standard Dataverse-supported queries.
 
 Requirements:
 
-- Show a KPI card displaying Total Assets in Kharkhoda.
-- Dynamically create a card for each unique Category Name from the filtered Kharkhoda data.
-- Each category card should display the Category Name and the count of assets where Asset Usage = "In Stock(STK)".
-- When a category card is clicked, open a details page showing all Asset Usage values and their counts for that category. Calculate these dynamically from the data; do not hardcode values.
-- Add an Asset Code search box. When an Asset Code is entered, open an Asset Details page showing all available information for that asset.
-- Search, counts, and details must use only Kharkhoda data.
-- Use Dataverse as the data source.
-- Support large datasets using delegable queries, server-side filtering, and efficient data access patterns. Do not load all records into local collections.
-- Provide clean navigation between Dashboard, Category Details, and Asset Details pages.
-- Show appropriate messages when no records or matching assets are found.
+- Filter records where Asset Store is either "Kharkhoda Store" or "Kharkhoda New Asset Store".
+- Treat both store values as a single logical store named "Kharkhoda".
+- Calculate Total Assets from all matching records, not a paginated subset.
+- Dynamically generate category cards from unique Category Name values within the filtered Kharkhoda dataset.
+- Each category card must show the count of records where Asset Usage = "In Stock(STK)".
+- Clicking a category card should show a dynamic breakdown of all Asset Usage values and their counts for that category.
+- Asset Usage values must be read dynamically from data and not hardcoded.
+- Add Asset Code search and asset details page.
+- Use only Dataverse-supported, delegation-safe operations.
+- Verify the exact Dataverse table logical name and column logical names before generating queries.
+- Fix all current loading errors and ensure the dashboard loads successfully.
 
-The application must be fully data-driven and automatically adapt to new categories, asset usage values, and future data updates without requiring manual changes.
+Before making changes, tell me:
 
-The dashboard always shows exactly 500 total assets. Review fetchKharkhodaAssetTotal() and all Dataverse queries.
-
-Check whether the Dataverse API is returning paged results and whether only the first page is being counted.
-
-Do not calculate totals using rows.length from a paginated query.
-
-Retrieve the true count of all records where Asset Store is either "Kharkhoda Store" or "Kharkhoda New Asset Store" using a server-side Dataverse count query.
-
-Also verify that category counts and Asset Usage counts are calculated from the complete filtered dataset rather than only the first returned page of records.
-
-If pagination is being used, automatically follow all nextLink pages or use Dataverse aggregate/count functionality so counts represent all matching records.
+1. The Dataverse table logical name.
+2. The logical names of Asset Store, Category Name, Asset Usage, and Asset Code.
+3. The current error causing "Unable to load the total asset count" and "Unable to load category cards from Dataverse".
