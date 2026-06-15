@@ -188,91 +188,21 @@ This project is licensed under the MIT License. See `LICENSE` for details.
 
 
 
+Build a Power Apps dashboard named "Asset Dashboard" using the connected Dataverse table containing IT asset inventory data.
 
- Build an internal dashboard called Asset Dashboard using asset data stored in Microsoft Dataverse.
+The table contains 62,000+ records for multiple plants and stores. For this application, treat records where Asset Store is "Kharkhoda Store" or "Kharkhoda New Asset Store" as a single logical store named "Kharkhoda". Combine both values in all calculations and do not display or analyze them separately.
 
-Routes
+Requirements:
 
-- "/" → Dashboard
-- "/asset/:assetCode" → Asset Detail
-- "/category/:categoryName" → Category Detail
-- "*" → Not Found
+- Show a KPI card displaying Total Assets in Kharkhoda.
+- Dynamically create a card for each unique Category Name from the filtered Kharkhoda data.
+- Each category card should display the Category Name and the count of assets where Asset Usage = "In Stock(STK)".
+- When a category card is clicked, open a details page showing all Asset Usage values and their counts for that category. Calculate these dynamically from the data; do not hardcode values.
+- Add an Asset Code search box. When an Asset Code is entered, open an Asset Details page showing all available information for that asset.
+- Search, counts, and details must use only Kharkhoda data.
+- Use Dataverse as the data source.
+- Support large datasets using delegable queries, server-side filtering, and efficient data access patterns. Do not load all records into local collections.
+- Provide clean navigation between Dashboard, Category Details, and Asset Details pages.
+- Show appropriate messages when no records or matching assets are found.
 
-Business Rules
-
-Only include assets whose Asset Store is:
-
-- Kharkhoda Store
-- Kharkhoda New Asset Store
-
-Blank categories should be displayed as Uncategorized.
-
-In Stock (STK) is the primary stock bucket.
-
-Dashboard counts and category cards must represent only In Stock (STK) assets.
-
-Other asset usage values should be tracked separately and displayed on the category detail page.
-
----
-
-Dashboard
-
-Summary Cards
-
-Display:
-
-1. Total Kharkhoda In-Stock Assets (STK only)
-2. Distinct Categories
-3. Total Kharkhoda Asset Records
-
-Asset Search
-
-- Search by asset code.
-- Open "/asset/:assetCode".
-
-Category Stock
-
-Create one card for each category found in the filtered Kharkhoda assets.
-
-Each card shows:
-
-- Category name
-- In Stock (STK) count
-
-Clicking a card opens:
-
-"/category/:categoryName"
-
-Categories should be sorted by highest STK count, then alphabetically.
-
----
-
-Asset Detail Page
-
-- Find the asset matching the selected asset code.
-- Display the complete asset record from Dataverse.
-- Show a not-found state if no asset exists.
-- Include a back button to the dashboard.
-
----
-
-Category Detail Page
-
-For the selected category, show:
-
-- In Stock (STK) count
-- Counts for all other asset usage values
-
-This page exists to provide the non-STK breakdown for the category.
-
-Include a back button and an empty state when no matching records exist.
-
----
-
-Core Requirement
-
-Every dashboard summary, category card, asset search result, asset detail page, and category detail page must be derived only from assets belonging to:
-
-- Kharkhoda Store
-- Kharkhoda New Asset Store
-
+The application must be fully data-driven and automatically adapt to new categories, asset usage values, and future data updates without requiring manual changes.
