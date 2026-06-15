@@ -247,3 +247,63 @@ Report:
 - First page record count
 - Number of pages
 - Final Total Assets returned by the corrected query
+
+
+Reviewed the current implementation for the / route, and the reason Total Assets stays at 500 is clear from the code: the app is still using the first page returned by retrieveMultipleRecordsAsync() and then counting that array.
+
+Exact Total Assets query now used in code:
+
+In apps/asset-dashboard/src/lib/asset-data.ts
+Filter:
+(cr9a7_assetstore eq 'Kharkhoda Store' or cr9a7_assetstore eq 'Kharkhoda New Asset Store')
+Current calculation:
+const rows = await fetchRows(kharkhodaFilter);
+return rows.length;
+Is Total Assets being calculated using a paged first result?
+
+Yes.
+It is calculated using rows.length.
+rows comes from AssetsStockKharkhodaService.getAll(...).
+getAll(...) calls retrieveMultipleRecordsAsync(...) once and returns result.data only.
+There is no handling of @odata.nextLink, no loop across pages, and no server-side count method in the generated service.
+Evidence from project code:
+
+src/lib/asset-data.ts:63-65
+fetchKharkhodaAssetTotal() returns rows.length
+src/generated/services/assets-stock-kharkhoda-service.ts:34-37
+getAll() calls retrieveMultipleRecordsAsync(...) once
+app-gen-sdk/data/common/types.ts:123-126
+IOperationOptions only supports filter and orderBy
+app-gen-sdk/data/app-gen-data-client.ts:282-340
+retrieves rows once, maps them, returns the single result set
+app-gen-sdk/data/common/byoc-sdk-data-client.ts:264-280
+also calls BYOC retrieveMultipleRecordsAsync(...) once and returns clientResult.data
+First page record count:
+
+500
+That matches your observed dashboard result and the current rows.length behavior.
+Total pages available:
+
+Not knowable from the current code path.
+The generated SDK surface being used here does not expose page metadata or @odata.nextLink, so this app code cannot currently report page count.
+Is the query following @odata.nextLink until all pages are processed?
+
+No.
+Are category counts and Asset Usage counts also affected?
+
+Yes.
+fetchKharkhodaCategoryCards() and fetchCategoryUsageSummary() also call fetchRows(...), then aggregate with a local Map, so they are also based only on the first returned page, not the full Kharkhoda dataset.
+Actual Kharkhoda record count:
+
+Not available from the current project code alone.
+I can confirm the app is not currently retrieving the true full count.
+Final Total Assets returned by the current query:
+
+500
+So the current state is:
+
+Actual Kharkhoda record count: unknown from this code path
+First page record count: 500
+Number of pages: unknown from this SDK response shape
+Final Total Assets currently shown: 500
+If you want, I’ll now replace the current dashboard count path with a true Dataverse-supported count retrieval approach that does not rely on rows.length, and I’ll update category/usage calculations to use a full-result-safe pattern too.
