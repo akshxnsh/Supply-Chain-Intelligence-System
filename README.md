@@ -211,3 +211,39 @@ Before making changes, tell me:
 1. The Dataverse table logical name.
 2. The logical names of Asset Store, Category Name, Asset Usage, and Asset Code.
 3. The current error causing "Unable to load the total asset count" and "Unable to load category cards from Dataverse".
+
+
+The schema issue is fixed, but Total Assets is still exactly 500.
+
+This indicates the dashboard is still counting only the first Dataverse page rather than all matching Kharkhoda records.
+
+Verify the following:
+
+1. What is the actual number of records in Dataverse where:
+   cr9a7_assetstore = "Kharkhoda Store"
+   OR
+   cr9a7_assetstore = "Kharkhoda New Asset Store"
+
+2. Show the exact query used to calculate Total Assets.
+
+3. Is Total Assets being calculated using:
+   
+   - rows.length
+   - fetchedRecords.length
+   - a local array length
+   - only the first API page
+
+4. How many records are returned in the first Dataverse page?
+
+5. How many total pages are available?
+
+6. Is the query following @odata.nextLink until all pages are processed?
+
+7. If not, implement full pagination or use a Dataverse server-side count query.
+
+Report:
+
+- Actual Kharkhoda record count
+- First page record count
+- Number of pages
+- Final Total Assets returned by the corrected query
