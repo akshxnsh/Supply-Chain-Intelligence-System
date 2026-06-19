@@ -1,3 +1,16 @@
+Do not modify UI.
+
+Regenerate the Dataverse binding for AssetsStockKharkhoda.
+
+Remove the existing generated datasource metadata for AssetsStockKharkhoda and recreate it from the current Dataverse schema.
+
+Do not modify components.
+Do not modify hooks.
+Do not modify UI.
+Only refresh datasource metadata and generated service bindings.
+
+Publish after regeneration.
+
 Do not modify code.
 
 Search all generated files for the string:
