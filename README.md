@@ -358,3 +358,21 @@ or
 NOT_FOUND
 or
 UNAUTHORIZED
+
+
+
+Do not modify any code.
+
+Read the generated file that contains the service definition for AssetsStockKharkhoda.
+
+Print exactly:
+
+ENTITY_SET_SOURCE_FILE=<relative path>
+
+ENTITY_SET_DECLARATION=<exact line>
+
+Do not infer.
+Do not guess.
+Do not execute requests.
+Do not summarize.
+Print only the file path and the exact declaration line.
