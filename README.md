@@ -230,3 +230,17 @@ Do not modify category cards.
 Do not modify queries.
 Do not add fallback text.
 Do not change any other logic.
+
+Do not modify any query.
+
+In the Total Assets card component only, replace the entire displayed value with the fixed string:
+
+HELLO_FROM_TOTAL_ASSETS_COMPONENT
+
+Do not use any condition.
+Do not use query state.
+Do not use response.status.
+Do not modify category cards.
+Do not modify fetch logic.
+Do not modify Dataverse requests.
+Only replace the displayed value inside the Total Assets card.
