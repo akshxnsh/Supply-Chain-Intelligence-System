@@ -268,3 +268,41 @@ Do not modify category cards.
 Do not modify fetch logic.
 Do not modify Dataverse requests.
 Only replace the Total Assets displayed value.
+
+
+Do not modify any query.
+
+Inside the Total Assets component only:
+
+If totalAssetsQuery.isError is true:
+
+Display exactly:
+
+ERROR_CLASS=<totalAssetsQuery.error?.constructor?.name>
+
+If the value is undefined display:
+
+ERROR_CLASS=UNDEFINED
+
+Do not modify queries.
+Do not modify fetch logic.
+Do not modify category cards.
+Do not modify Dataverse requests.
+Do not change anything else.
+
+Do not modify any query.
+
+Inside the Total Assets component only:
+
+If totalAssetsQuery.isError is true:
+
+Display exactly:
+
+ERROR_MESSAGE=<String(totalAssetsQuery.error)>
+
+Do not display anything else.
+Do not modify queries.
+Do not modify fetch logic.
+Do not modify category cards.
+Do not modify Dataverse requests.
+Do not change anything else.
