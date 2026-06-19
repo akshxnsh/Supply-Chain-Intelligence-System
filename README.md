@@ -244,3 +244,27 @@ Do not modify category cards.
 Do not modify fetch logic.
 Do not modify Dataverse requests.
 Only replace the displayed value inside the Total Assets card.
+
+
+
+Do not modify any query.
+
+Inside the Total Assets component only:
+
+Display exactly one of the following strings:
+
+QUERY_LOADING
+if totalAssetsQuery.isLoading is true
+
+QUERY_ERROR
+if totalAssetsQuery.isError is true
+
+QUERY_SUCCESS
+if totalAssetsQuery.isSuccess is true
+
+Do not display any count.
+Do not display response text.
+Do not modify category cards.
+Do not modify fetch logic.
+Do not modify Dataverse requests.
+Only replace the Total Assets displayed value.
