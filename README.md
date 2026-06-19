@@ -1,5 +1,17 @@
 Do not modify code.
 
+Search all generated files for the string:
+
+AssetsStockKharkhoda
+
+Print every file path containing this string and the exact matching lines.
+
+Do not summarize.
+Do not infer.
+Print only matches.
+
+Do not modify code.
+
 Inspect the generated datasource metadata.
 
 Print exactly:
