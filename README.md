@@ -1,3 +1,23 @@
+
+Do not modify any code.
+
+Read the file:
+
+apps/asset-dashboard/src/generated/services/assets-stock-kharkhoda-service.ts
+
+Print exactly these declarations and nothing else:
+
+BASE_URL=
+DATAVERSE_BASE_URL=
+API_BASE_URL=
+DATA_SOURCE_NAME=
+fetch(
+
+If a symbol does not exist print NOT_PRESENT.
+
+Do not infer.
+Do not summarize.
+Print only the exact lines from the file.
 # Supply Chain Disruption Intelligence Agent
 
 ## Overview
