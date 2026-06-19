@@ -340,3 +340,21 @@ Do not guess.
 Do not use the display name.
 Read only from generated schema/metadata files.
 Print only the value.
+
+
+
+Do not modify code.
+
+Verify whether GET
+
+https://org170ad377.crm8.dynamics.com/api/data/v9.2/cr9a7_assetsstockkharkhodas?$top=1
+
+exists in the current authenticated session.
+
+Answer only:
+
+EXISTS
+or
+NOT_FOUND
+or
+UNAUTHORIZED
