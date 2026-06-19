@@ -306,3 +306,20 @@ Do not modify fetch logic.
 Do not modify category cards.
 Do not modify Dataverse requests.
 Do not change anything else.
+
+
+Do not modify any code.
+
+For the Total Assets request only:
+
+Display exactly:
+
+REQUEST_URL=<the exact URL string passed to fetch()>
+
+Do not execute another request.
+Do not summarize.
+Do not reconstruct.
+Display the exact string argument supplied to fetch().
+Do not modify queries.
+Do not modify category cards.
+Do not modify anything else.
