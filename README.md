@@ -1,23 +1,23 @@
+Do not modify code.
 
-Do not modify any code.
+Inspect the generated datasource metadata.
 
-Read the file:
+Print exactly:
 
-apps/asset-dashboard/src/generated/services/assets-stock-kharkhoda-service.ts
+DATASOURCE_NAME=
+ENTITY_SET=
+ENTITY_LOGICAL_NAME=
+IS_BOUND=
+CONNECTION_REFERENCE=
 
-Print exactly these declarations and nothing else:
+for AssetsStockKharkhoda.
 
-BASE_URL=
-DATAVERSE_BASE_URL=
-API_BASE_URL=
-DATA_SOURCE_NAME=
-fetch(
-
-If a symbol does not exist print NOT_PRESENT.
+If unavailable print NOT_PRESENT.
 
 Do not infer.
 Do not summarize.
-Print only the exact lines from the file.
+Print only values found in generated metadata.
+
 # Supply Chain Disruption Intelligence Agent
 
 ## Overview
