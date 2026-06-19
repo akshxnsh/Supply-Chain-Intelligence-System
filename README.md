@@ -185,21 +185,29 @@ python -m pytest -q
 
 This project is licensed under the MIT License. See `LICENSE` for details.
 
-The dashboard is still failing to load data.
+Inspected the current / route code and its Dataverse fetch path without modifying anything. The app is not logging raw responses, so several items you asked for are not observable from the current code alone.
 
-Do not make further code changes yet.
-
-Instead, inspect the runtime error and report:
-
-1. The exact HTTP status code returned by the Total Assets request.
-2. The exact HTTP status code returned by the category cards request.
-3. The full Dataverse error message.
-4. The exact URL/query being executed.
-5. Whether the $count=true request succeeds when executed directly.
-6. Whether following @odata.nextLink succeeds.
-7. Whether the authenticated user has permission to read cr9a7_assetsstockkharkhoda.
-8. The exact exception being caught that results in:
-   - "Unable to load the total asset count"
-   - "Unable to load category cards from Dataverse"
-
-Show the raw error response instead of applying another fix.
+Total Assets request HTTP status code: Not directly observable from existing logs. The only exception text the code can surface is Dataverse request failed with status ${response.status}., but the actual numeric status is not captured anywhere in the repo.
+Category cards request HTTP status code: Not directly observable from existing logs. This request uses the same fetch helper and also only throws Dataverse request failed with status ${response.status}. without persisting the actual status anywhere visible.
+Full Dataverse error message: Not observable from the current implementation. fetchDataverseJson() throws before reading the response body, so any Dataverse/OData payload like error.message is discarded.
+Exact URL/query being executed:
+Base URL comes from browser origin: window.location.origin + "/api/data/v9.2" in apps/asset-dashboard/src/lib/asset-data.ts:91-100
+Configured Dataverse environment URL is https://org170ad377.crm8.dynamics.com in apps/asset-dashboard/power.config.json:12
+Current code actually calls the singular logical name path, not the configured entity set name:
+Count request: /api/data/v9.2/cr9a7_assetsstockkharkhoda?$filter=(cr9a7_assetstore eq 'Kharkhoda Store' or cr9a7_assetstore eq 'Kharkhoda New Asset Store')&$count=true&$top=1&$select=cr9a7_assetcode
+Category cards/list request first page: /api/data/v9.2/cr9a7_assetsstockkharkhoda?$select=cr9a7_assetsstockkharkhodaid,cr9a7_assetstore,cr9a7_categoryname,cr9a7_assetusage,cr9a7_assetcode,cr9a7_assetcomments,cr9a7_assetcost,cr9a7_assetfloor,cr9a7_assetid,cr9a7_assetremarks,cr9a7_commissioningdate,cr9a7_companyname,cr9a7_cpudetails,cr9a7_dept,cr9a7_designation,cr9a7_empid,cr9a7_financecontrolnumber,cr9a7_floorlocation,cr9a7_harddisksizegb,cr9a7_hostname,cr9a7_imeino,cr9a7_invoicenumber,cr9a7_locationcode,cr9a7_manufacturer,cr9a7_materialreceiveddate,cr9a7_mobiledevicestype,cr9a7_modelnumber,cr9a7_name,cr9a7_ponumber,cr9a7_procurementringino,cr9a7_procurementringitype,cr9a7_ramsizegb,cr9a7_remark,cr9a7_serialnumber,cr9a7_storelocation,cr9a7_username,cr9a7_vendorname,cr9a7_warrantyend,cr9a7_warrantystart&$filter=(cr9a7_assetstore eq 'Kharkhoda Store' or cr9a7_assetstore eq 'Kharkhoda New Asset Store')&$orderby=cr9a7_categoryname asc,cr9a7_assetcode asc
+Important mismatch found: power.config.json says the entity set name is cr9a7_assetsstockkharkhodas, but the runtime code calls cr9a7_assetsstockkharkhoda.
+Whether the $count=true request succeeds when executed directly: Not observable from current code or stored logs. No raw direct execution result is captured.
+Whether following @odata.nextLink succeeds: Not observable from current logs. The code follows response['@odata.nextLink'] ?? '', but does not log each page URL, page status, or any nextLink failure body.
+Whether the authenticated user has permission to read cr9a7_assetsstockkharkhoda: Not determinable from the current codebase alone. There is no permission probe, no logged 401/403 payload, and no security/privilege response captured.
+Exact exception being caught that results in Unable to load the total asset count: The UI shows that message when totalAssetsQuery.isError is true in apps/asset-dashboard/src/pages/index.tsx:124-128. The underlying thrown error can be one of:
+Dataverse request failed with status ${response.status}.
+Dataverse did not return a server-side count.
+Unable to build Kharkhoda diagnostics.
+Or any upstream fetch/runtime error thrown while fetchKharkhodaDiagnostics() / fetchAllKharkhodaRows() runs.
+Exact exception being caught that results in Unable to load category cards from Dataverse: The UI shows that message when categoryCardsQuery.isError is true in apps/asset-dashboard/src/pages/index.tsx:173-176. The underlying thrown error can be:
+Dataverse request failed with status ${response.status}.
+Unable to build Kharkhoda diagnostics.
+Or any upstream fetch/runtime error from fetchAllKharkhodaRows().
+Raw error response: Not available in the current implementation because the code never reads await response.text() or await response.json() on non-OK responses; it discards the body and throws a synthesized Error.
+The most concrete inspection finding is that the app is requesting /api/data/v9.2/cr9a7_assetsstockkharkhoda... while the configured Dataverse entity set name is cr9a7_assetsstockkharkhodas; however, I did not change code per your instruction.
