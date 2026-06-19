@@ -211,3 +211,22 @@ Unable to build Kharkhoda diagnostics.
 Or any upstream fetch/runtime error from fetchAllKharkhodaRows().
 Raw error response: Not available in the current implementation because the code never reads await response.text() or await response.json() on non-OK responses; it discards the body and throws a synthesized Error.
 The most concrete inspection finding is that the app is requesting /api/data/v9.2/cr9a7_assetsstockkharkhoda... while the configured Dataverse entity set name is cr9a7_assetsstockkharkhodas; however, I did not change code per your instruction.
+
+Do not modify any query.
+
+Inside the Total Assets request error path only:
+
+Replace the contents of the Total Assets card with exactly one of these values:
+
+"NO_RESPONSE_OBJECT"
+if the fetch throws before a Response exists.
+
+Otherwise display:
+
+STATUS=<response.status>
+
+Do not read response.text().
+Do not modify category cards.
+Do not modify queries.
+Do not add fallback text.
+Do not change any other logic.
