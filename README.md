@@ -323,3 +323,20 @@ Display the exact string argument supplied to fetch().
 Do not modify queries.
 Do not modify category cards.
 Do not modify anything else.
+
+
+Do not modify any code.
+
+Inspect the generated schema and power.config.json.
+
+Print exactly:
+
+ENTITY_SET_NAME=<value>
+
+This must be the exact entity set name exposed by Dataverse Web API for the AssetsStockKharkhoda table.
+
+Do not infer.
+Do not guess.
+Do not use the display name.
+Read only from generated schema/metadata files.
+Print only the value.
