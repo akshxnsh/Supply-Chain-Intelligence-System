@@ -1,48 +1,3 @@
-Do not modify UI.
-
-Regenerate the Dataverse binding for AssetsStockKharkhoda.
-
-Remove the existing generated datasource metadata for AssetsStockKharkhoda and recreate it from the current Dataverse schema.
-
-Do not modify components.
-Do not modify hooks.
-Do not modify UI.
-Only refresh datasource metadata and generated service bindings.
-
-Publish after regeneration.
-
-Do not modify code.
-
-Search all generated files for the string:
-
-AssetsStockKharkhoda
-
-Print every file path containing this string and the exact matching lines.
-
-Do not summarize.
-Do not infer.
-Print only matches.
-
-Do not modify code.
-
-Inspect the generated datasource metadata.
-
-Print exactly:
-
-DATASOURCE_NAME=
-ENTITY_SET=
-ENTITY_LOGICAL_NAME=
-IS_BOUND=
-CONNECTION_REFERENCE=
-
-for AssetsStockKharkhoda.
-
-If unavailable print NOT_PRESENT.
-
-Do not infer.
-Do not summarize.
-Print only values found in generated metadata.
-
 # Supply Chain Disruption Intelligence Agent
 
 ## Overview
@@ -230,12 +185,3 @@ python -m pytest -q
 
 This project is licensed under the MIT License. See `LICENSE` for details.
 
-apps/asset-dashboard/src/generated/services/assets-stock-kharkhoda-service.ts 2#QV:import type { AssetsStockKharkhoda } from '../models/assets-stock-kharkhoda-model'; 5#XS:const DATA_SOURCE_NAME = 'AssetsStockKharkhoda'; 7#VS:export class AssetsStockKharkhodaService { 8#BJ: static async create(record: Omit<AssetsStockKharkhoda, 'id'>): Promise<AssetsStockKharkhoda> { 11#PR: return result.data as AssetsStockKharkhoda; 16#TZ: changedFields: Partial<Omit<AssetsStockKharkhoda, 'id'>> 17#MN: ): Promise<AssetsStockKharkhoda> { 20#PR: return result.data as AssetsStockKharkhoda; 28#NW: static async get(id: string): Promise<AssetsStockKharkhoda> { 31#PR: return result.data as AssetsStockKharkhoda; 34#NH: static async getAll(options?: IOperationOptions): Promise<AssetsStockKharkhoda[]> { 37#TY: return result.data as AssetsStockKharkhoda[];
-
-apps/asset-dashboard/src/generated/hooks/use-assets-stock-kharkhoda.ts 2#ZQ:import { AssetsStockKharkhodaService } from "../services/assets-stock-kharkhoda-service"; 3#JP:import type { AssetsStockKharkhoda } from "../models/assets-stock-kharkhoda-model"; 9#PW: * Retrieve all AssetsStockKharkhoda records with optional filtering and sorting. 14#JT:export function useAssetsStockKharkhodaList(options?: IOperationOptions) { 17#JK: queryFn: () => AssetsStockKharkhodaService.getAll(options), 22#MP: * Retrieve a single AssetsStockKharkhoda record by its unique identifier. 25#PW:export function useAssetsStockKharkhoda(id: string) { 28#JT: queryFn: () => AssetsStockKharkhodaService.get(id), 34#BJ: * Create a new AssetsStockKharkhoda record. 35#ZX: * @remarks Form validation: use CreateAssetsStockKharkhodaSchema with zodResolver for type-safe create forms 37#PK:export function useCreateAssetsStockKharkhoda() { 40#BX: mutationFn: (data: Omit<AssetsStockKharkhoda, "id">) => AssetsStockKharkhodaService.create(data), 48#RS: * Update an existing AssetsStockKharkhoda record. 49#ZX: * @remarks Form validation: use UpdateAssetsStockKharkhodaSchema.partial().omit({ id: true }) with zodResolver for edit forms (matches changedFields input) 51#YP:export function useUpdateAssetsStockKharkhoda() { 59#SZ: changedFields: Partial<Omit<AssetsStockKharkhoda, "id">>; 60#JZ: }) => AssetsStockKharkhodaService.update(id, changedFields), 69#RX: * Delete a AssetsStockKharkhoda record by its unique identifier. 71#NY:export function useDeleteAssetsStockKharkhoda() { 74#YB: mutationFn: (id: string) => AssetsStockKharkhodaService.delete(id), 83#HR:export const AssetsStockKharkhoda_DATA_SOURCE_TYPE = 'Dataverse' as const; 85#JW:export { AssetsStockKharkhodaSchema, CreateAssetsStockKharkhodaSchema, UpdateAssetsStockKharkhodaSchema } from "../validators/assets-stock-kharkhoda-validator"; 86#XM:export type { AssetsStockKharkhodaInput, CreateAssetsStockKharkhodaInput, UpdateAssetsStockKharkhodaInput } from "../validators/assets-stock-kharkhoda-validator";
-
-apps/asset-dashboard/src/generated/models/assets-stock-kharkhoda-model.ts 1#VY:export interface AssetsStockKharkhoda { 3#HS: * @displayName AssetsStockKharkhoda 163#KH:export const _AssetsStockKharkhoda = 'AssetsStockKharkhoda' as const;
-
-apps/asset-dashboard/src/generated/validators/assets-stock-kharkhoda-validator.ts 4#JW: * Zod schema for AssetsStockKharkhoda validation 6#YS:export const AssetsStockKharkhodaSchema = z.object({ 49#WX: * Schema for creating a new AssetsStockKharkhoda (omits system-generated ID) 51#HZ:export const CreateAssetsStockKharkhodaSchema = AssetsStockKharkhodaSchema.omit({ id: true }); 54#MZ: * Schema for updating an existing AssetsStockKharkhoda 56#MM:export const UpdateAssetsStockKharkhodaSchema = AssetsStockKharkhodaSchema; 58#BT:export type AssetsStockKharkhodaInput = z.infer<typeof AssetsStockKharkhodaSchema>; 59#TS:export type CreateAssetsStockKharkhodaInput = z.infer<typeof CreateAssetsStockKharkhodaSchema>; 60#NJ:export type UpdateAssetsStockKharkhodaInput = z.infer<typeof UpdateAssetsStockKharkhodaSchema>;
-
-data-model/full-data-model.json 9#HS: "Label": "AssetsStockKharkhoda", 40#QM: "SchemaName": "cr9a7_AssetsStockKharkhoda", 309#XR: "SchemaName": "cr9a7_AssetsStockKharkhodaId", 325#HS: "Label": "AssetsStockKharkhoda",
