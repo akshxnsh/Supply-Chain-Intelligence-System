@@ -28,7 +28,7 @@ from src.reader.tracing import setup_tracing, span
 from src.risk.pipeline import run_risk
 
 JUDGED_LEVELS = ("notify",)
-DEFAULT_RPM = 5
+DEFAULT_RPM = 4    # gemini-2.5-flash / 3.6-flash free tier: 5 requests/minute and only 20 per day
 # Free-tier quota for the judge model was 20 requests/day in Nov 2026, so only the biggest alerts get a model call per run;
 # the rest keep the rule-based recommendation (judge_source = fallback, with the reason stored).
 DEFAULT_MAX_MODEL_CALLS = 10

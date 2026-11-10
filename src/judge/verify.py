@@ -4,7 +4,8 @@ Checks (any failure rejects the whole answer -> deterministic fallback):
   1. the action type is allowed for this kind of alert;
   2. every claim cites at least one evidence id, and every cited id exists (real article / notice / event ids, or "facts");
   3. every number written anywhere in the answer appears in the FACTS or the EVIDENCE text (within 0.5%);
-  4. every date written anywhere in the answer is a date the code knows (today, event window, stock-out / order dates, ETAs);
+  4. every date written anywhere in the answer is a date the code knows (today, event window, stock-out / order dates, ETAs)
+     or one that is written in the evidence text itself;
   5. the act-by date lies between today and the latest date the code allows.
 Words for numbers ("two days") and month names are not checked, which is why the prompt asks for digits and ISO dates.
 """
@@ -19,6 +20,9 @@ from src.judge.schema import EvidenceBundle, JudgeDecision
 
 DATE_RE = re.compile(r"\b(\d{4})-(\d{2})-(\d{2})\b")
 NUM_RE = re.compile(r"(?<![\w.:/\-])\$?(\d{1,3}(?:,\d{3})+|\d+)(\.\d+)?\s*(%|k\b|K\b|m\b|M\b)?")
+MONTHS = {m: i for i, m in enumerate(["january", "february", "march", "april", "may", "june", "july", "august", "september",
+                                          "october", "november", "december"], 1)}
+TEXT_DATE_RE = re.compile(r"\b(" + "|".join(MONTHS) + r")\s+(\d{1,2}),?\s+(\d{4})\b", re.I)
 SCALE = {"k": 1e3, "K": 1e3, "m": 1e6, "M": 1e6}
 REL_TOL = 0.005
 
@@ -61,6 +65,23 @@ def _close(x: float, allowed: set[float]) -> bool:
     return any(abs(x - a) <= max(0.05, REL_TOL * abs(a)) for a in allowed)
 
 
+def dates_in_evidence(bundle: EvidenceBundle) -> set[date]:
+    """Dates written in the evidence text itself (ISO or 'October 19, 2026'): quoting them is allowed."""
+    out: set[date] = set()
+    for item in bundle.items:
+        for y, m, d in DATE_RE.findall(item.text):
+            try:
+                out.add(date(int(y), int(m), int(d)))
+            except ValueError:
+                pass
+        for month, d, y in TEXT_DATE_RE.findall(item.text):
+            try:
+                out.add(date(int(y), MONTHS[month.lower()], int(d)))
+            except ValueError:
+                pass
+    return out
+
+
 def _texts(d: JudgeDecision) -> list[tuple[str, str]]:
     out = [("recommended_action", d.recommended_action), ("reasoning", d.reasoning)]
     if d.uncertainty:
@@ -85,6 +106,7 @@ def verify(decision: JudgeDecision, bundle: EvidenceBundle) -> list[str]:
             issues.append(f"claim {i} cites unknown evidence id(s): {unknown}")
 
     allowed = allowed_numbers(bundle)
+    known_dates = bundle.allowed_dates | dates_in_evidence(bundle)
     seen_numbers, seen_dates = set(), set()
     for where, text in _texts(decision):
         for n in _numbers_in(text):
@@ -97,7 +119,7 @@ def verify(decision: JudgeDecision, bundle: EvidenceBundle) -> list[str]:
             except ValueError:
                 issues.append(f"invalid date {y}-{mth}-{d} in {where}")
                 continue
-            if dt not in bundle.allowed_dates and dt not in seen_dates:
+            if dt not in known_dates and dt not in seen_dates:
                 seen_dates.add(dt)
                 issues.append(f"date {dt} in {where} is not one of the dates the system computed")
 

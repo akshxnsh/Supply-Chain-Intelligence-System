@@ -1,0 +1,14 @@
+{"case_id": "real-01", "supported": "yes", "note": "claims restate facts (low confidence, rate null)", "graded_by": "claude-draft (needs Akshansh's review)"}
+{"case_id": "real-02", "supported": "yes", "note": "facts and assumptions match", "graded_by": "claude-draft (needs Akshansh's review)"}
+{"case_id": "real-03", "supported": "yes", "note": "suspension through 2027-01-09 is in the notice text", "graded_by": "claude-draft (needs Akshansh's review)"}
+{"case_id": "real-04", "supported": "yes", "note": "'Applicable October 19, 2026' is in the notice", "graded_by": "claude-draft (needs Akshansh's review)"}
+{"case_id": "real-05", "supported": "partly", "note": "says an 'expected' event 'started' on 2026-10-20: both facts exist but the wording is contradictory", "graded_by": "claude-draft (needs Akshansh's review)"}
+{"case_id": "real-06", "supported": "yes", "note": "", "graded_by": "claude-draft (needs Akshansh's review)"}
+{"case_id": "real-07", "supported": "yes", "note": "", "graded_by": "claude-draft (needs Akshansh's review)"}
+{"case_id": "real-08", "supported": "yes", "note": "", "graded_by": "claude-draft (needs Akshansh's review)"}
+{"case_id": "control-01", "supported": "no", "note": "invented flood/bankruptcy claim", "graded_by": "claude-draft (needs Akshansh's review)"}
+{"case_id": "control-02", "supported": "partly", "note": "statements are facts-supported but one citation points to a notice no longer in the evidence", "graded_by": "claude-draft (needs Akshansh's review)"}
+{"case_id": "control-03", "supported": "no", "note": "invented flood/bankruptcy claim", "graded_by": "claude-draft (needs Akshansh's review)"}
+{"case_id": "control-04", "supported": "no", "note": "main claim cites a notice that is not in the evidence; recommendation rests on it", "graded_by": "claude-draft (needs Akshansh's review)"}
+{"case_id": "control-05", "supported": "no", "note": "invented flood/bankruptcy claim", "graded_by": "claude-draft (needs Akshansh's review)"}
+{"case_id": "control-06", "supported": "partly", "note": "claim 1 cites a notice not in the evidence; claims 2 and 3 are supported by facts", "graded_by": "claude-draft (needs Akshansh's review)"}

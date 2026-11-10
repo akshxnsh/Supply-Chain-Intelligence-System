@@ -39,6 +39,7 @@ class JudgeResult:
     model: str | None = None
     input_tokens: int | None = None
     output_tokens: int | None = None
+    model_decision: JudgeDecision | None = None   # what the model actually answered, even if the code rejected it (for evaluation)
 
 
 _FALLBACK_ACTION = {"tariff": "review_landed_cost", "fx": "hedge_exchange_rate"}
@@ -117,13 +118,13 @@ class Judge:
         issues = verify(decision, bundle)
         if issues:
             self.log.log({**base, "status": "rejected", "error": "; ".join(issues)[:300]})
-            return self._fallback(row, bundle, issues, resp)
+            return self._fallback(row, bundle, issues, resp, decision)
 
         self.log.log({**base, "status": "ok"})
         if self.cache:
             self.cache.set(key, {"decision": decision.model_dump(mode="json")})
-        return JudgeResult(decision, "model", [], self.model, resp.input_tokens, resp.output_tokens)
+        return JudgeResult(decision, "model", [], self.model, resp.input_tokens, resp.output_tokens, decision)
 
-    def _fallback(self, row: AlertRow, bundle: EvidenceBundle, issues: list[str], resp=None) -> JudgeResult:
+    def _fallback(self, row: AlertRow, bundle: EvidenceBundle, issues: list[str], resp=None, model_decision=None) -> JudgeResult:
         return JudgeResult(fallback_decision(row, bundle), "fallback", issues, self.model,
-                           getattr(resp, "input_tokens", None), getattr(resp, "output_tokens", None))
+                           getattr(resp, "input_tokens", None), getattr(resp, "output_tokens", None), model_decision)

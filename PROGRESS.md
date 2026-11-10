@@ -24,6 +24,9 @@ Source of truth for rules and steps: `Claude outputs/plan.md`. Only real, measur
 ## Baseline before step 2 (branch step-1-cleanup)
 `pytest` could not even collect: 8 of 9 test files crashed at import with Google `DefaultCredentialsError` (BigQuery client created at import). So "tests passing" was not verifiable without BigQuery credentials.
 
+- [ ] **Review my draft labels**: `eval/reader_labels.jsonl` (50 items) and `eval/judge_grades.jsonl` (14 cases) were written by Claude from the text alone, NOT by you. Every accuracy number below is "against Claude's draft labels" until you review them (22 reader items are flagged `ambiguous`; edit any label you disagree with and re-run `python -m src.evaluation.reader_eval`).
+- [ ] **Judge model / provider decision**: free-tier limits (your screenshots, Nov 2026): Gemini 2.5 Flash 5 requests/min and 20/day (25 used, exhausted), Gemini 3.6 Flash 5/min and 20/day (exhausted by the evaluation), Gemini 3.5 Flash Lite 15/min and 500/day, 3.1 Flash Lite 15/min and 500/day. Groq (gpt-oss-120b, gpt-oss-20b, qwen3.8-27b): 30/min, 1,000/day, but only 8,000 tokens/min and 200,000 tokens/day. See the Groq note in the Step 9 section.
+
 ## Step 2 - step-2-postgres
 - BigQuery removed (code, `google-cloud-bigquery` in requirements). New: `src/ingestion/db.py`, `queries.py`, `migrate.py`, `db/migrations/001_core_tables.sql` (PKs), `002_indexes.sql`, `scripts/benchmark_db.py`.
 - requirements: added `psycopg[binary]`, `psycopg-pool`, `redis`, `google-genai` (pinned to installed versions).
@@ -127,3 +130,29 @@ What has NOT been seen live (needs you): any Gemini answer (reader or judge), Re
 - **Lifecycle fix:** alerts the latest run no longer produces are now closed (`status = resolved`, with a note), acknowledged alerts are left alone, and a resolved alert that comes back is reopened. 12 stale alerts (including the old China-tariff Notify) were closed this way. The upsert also now refreshes `signal_kind`, `source`, `event_type`.
 - Honest reading: "0 Notify in 60 days" mostly means "no notice states a duty rate that hits these 7 sample shipments", not that the system proved it catches real risk; catching real events needs the step-9 evaluation on hand-labelled data. Weather / disaster / FX signals were also quiet this week (see step 7).
 - Tests: `pytest` = **193 passed**.
+
+## Step 9 - evaluation (branch step-11-evaluation, 2026-11-10/11)
+Files: `eval/reader_items.jsonl` (50 real items, text frozen), `eval/reader_labels.jsonl` (draft labels), `src/evaluation/reader_eval.py`, `eval/judge_cases.jsonl`, `eval/judge_grades.jsonl`, `src/evaluation/judge_eval.py`, results in `eval/results/`. The 50 items: 25 news (12 the reader had called relevant, 13 not) + 25 notices (10 the reader had called "expected"); selection used the stored reader output only to balance the mix, labels were written from the text alone.
+
+**Reader vs draft labels (gemini-3.5-flash-lite, live):**
+| metric | all 50 items | unambiguous only (28 items) |
+|---|---|---|
+| relevance accuracy / precision / recall / F1 | 80% / 73% / 100% / 0.84 | 89% / 83% / 100% / 0.91 |
+| event type (27 relevant items) | 27/27 = 100% | 15/15 |
+| status (happened/ongoing/expected) | 16/27 = 59% | 10/15 = 67% |
+| **expected-date extraction: exact start date** | **22/22 = 100%** (all within 0 days) | 15/15 |
+| imposing country | 25/27 = 92.6% | 15/15 |
+| stated duty rate | 1/1 found | - |
+- Weak spots (honest): it over-flags relevance (10 false positives, 100% recall): a stock-market piece mentioning "tariff-hit" companies, a USTR request for comments, a CBP rule about rail passengers, and commentary pieces (7 of the 10 are items I flagged ambiguous). It also disagrees on status for AD/CVD notices: it says "expected"/"ongoing" for preliminary determinations (final result still to come) where my labels say "happened" - a defensible reading, but it decides heads-up vs now. It put a start date on one item whose labels have none (Canadian chicken quota, 2027-01-01) and one rate where the labels have none. n = 50, so one item is 2 percentage points.
+- Calls and cache (same 50 items): cold run 16 model calls (11 of them retries after 503/429) vs 50 one-per-item = 68% fewer; warm run 0 calls, 50/50 cache hits. On the full 334 items (earlier, Redis): 82.9% fewer calls cold, 98.8% cache hit rate warm.
+
+**Judge, offline LLM-as-judge ("is the answer supported by the evidence it cites?"):**
+- 15 cases: 9 real alerts through the real judge (gemini-3.6-flash; gemini-2.5-flash had run out of daily requests) + 6 deliberately bad controls (an invented claim, or citations pointing at other evidence). Of the 9: 7 answers accepted by the code checks, 1 rejected, 1 got no answer (daily quota).
+- **Found a bug in my own checker**: the rejected answer quoted "2026-10-19", which is written in the notice ("Applicable October 19, 2026"), but I only allowed system-computed dates. Fixed: dates written in the evidence text are now allowed (test added).
+- Hand grades (Claude's drafts) for the 14 answers: real 7 yes + 1 partly; controls 4 no + 2 partly. Grader = gemini-3.5-flash-lite (a different model from the judged one): agrees with the hand grades on "fully supported or not" in **13/14 = 92.9%**, exact yes/partly/no agreement 10/14 = 71.4%. It flagged all 4 hand-graded "no" answers as not fully supported, but called 3 of them only "partly" (too lenient on invented claims). n = 14: too small to trust this grader on its own yet.
+
+**Alerts per week (real, untuned defaults, 7 sample shipments, 60 days of notices + 3 days of news):** 0 Notify (0 per week) and 36 Watch (about 4 per week, dashboard only); the quiet result is explained in the sections above.
+
+**Groq question (user asked):** Groq's limits (gpt-oss-120b / 20b, qwen3.8-27b: 30 req/min, 1,000 req/day, but 8,000 tokens/min, 200,000 tokens/day) beat Gemini's free 20 requests/day for the judge, but the 8,000 tokens/min cap is too small for the reader (a batch of 10 items is about 2,500 tokens, so about 3 calls a minute). Suggested split, not done yet: reader stays on Gemini 3.5 Flash Lite (15/min, 500/day, 250K tokens/min); judge and the evaluation grader could use Groq, which would also make the grader a different model FAMILY from the judge. Needs a `GROQ_API_KEY`, a ~40-line client behind the existing `LLMClient` interface, and a measured comparison before switching.
+- Defaults now match the real limits: `READER_RPM` 12 (limit 15), `JUDGE_RPM` 4 (limit 5). Also fixed: a timezone-sensitive raw-reader test (laptop IST vs database UTC).
+- Tests: `pytest` = **200 passed**.

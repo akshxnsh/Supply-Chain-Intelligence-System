@@ -78,10 +78,13 @@ def test_tariff_documents_recent_only(raw):
 
 def test_forecast_only_today_and_later(raw):
     mod, c = raw
-    ins = "INSERT INTO fivetran_raw_open_meteo.daily_forecast (location_id, forecast_date, _fivetran_deleted) VALUES (%s,%s,false)"
-    c.execute(ins, ("L1", date.today() - timedelta(days=1)))
-    c.execute(ins, ("L1", date.today() + timedelta(days=2)))
-    assert [r["forecast_date"] for r in mod.upcoming_forecast()] == [date.today() + timedelta(days=2)]
+    # use the database's own current_date: it is UTC, and the laptop's local date can differ around midnight
+    ins = ("INSERT INTO fivetran_raw_open_meteo.daily_forecast (location_id, forecast_date, _fivetran_deleted) "
+           "VALUES ('L1', current_date + %s, false)")
+    c.execute(ins, (-1,))
+    c.execute(ins, (2,))
+    today_db = c.execute("SELECT current_date").fetchone()[0]
+    assert [r["forecast_date"] for r in mod.upcoming_forecast()] == [today_db + timedelta(days=2)]
 
 
 def test_latest_rates_one_row_per_currency_and_history(raw):

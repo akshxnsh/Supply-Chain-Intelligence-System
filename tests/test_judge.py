@@ -253,3 +253,16 @@ def test_fallback_for_an_unpriced_duty_notice_passes_verification():
     fb = fallback_decision(row, b)
     assert b.facts["tariff"] == {"rate_percent": None, "rate_stated": False}
     assert "cannot be priced" in fb.claims[0].statement and verify(fb, b) == []
+
+
+def test_a_date_quoted_from_the_evidence_text_is_allowed_but_an_unseen_date_is_not():
+    # live case: the notice says "Applicable October 19, 2026" but no system date matched it, so a correct answer was rejected
+    sig = tariff_signal(rate_percent=None, start=None, evidence=[{"type": "federal_register", "id": "2026-21295"}])
+    (row,) = evaluate([sig], [shipment()], company(), PORTS, CFG, TODAY, 2000.0, "biz")
+    b = build_bundle(row, company(), TODAY, {"t1": [EvidenceItem("notice:2026-21295", "notice", "Final determination | dates: Applicable October 19, 2026.")]})
+    ok = JudgeDecision.model_validate({"action_type": "monitor", "recommended_action": "Monitor.", "act_by": None,
+                                       "reasoning": "The determination applies from 2026-10-19.",
+                                       "claims": [{"statement": "Applicable 2026-10-19.", "evidence_ids": ["notice:2026-21295"]}]})
+    assert verify(ok, b) == []
+    bad = JudgeDecision.model_validate({**ok.model_dump(mode="json"), "reasoning": "It applies from 2026-10-20."})
+    assert any("2026-10-20" in i for i in verify(bad, b))

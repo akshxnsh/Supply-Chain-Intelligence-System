@@ -22,7 +22,7 @@ from src.reader.limiter import RateLimiter
 from src.reader.reader import Reader
 from src.reader.tracing import setup_tracing, span
 
-DEFAULT_RPM = 8
+DEFAULT_RPM = 12   # gemini-3.5-flash-lite free tier: 15 requests/minute (AI Studio, Nov 2026)
 
 
 def main() -> None:
