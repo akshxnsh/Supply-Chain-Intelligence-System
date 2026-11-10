@@ -10,3 +10,4 @@ google-credentials.json
 .venv*/
 connectors/*/files/
 connectors/*/configuration.local.json
+connectors/*/crash-reports/
