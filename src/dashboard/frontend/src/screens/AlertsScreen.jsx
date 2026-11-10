@@ -247,7 +247,7 @@ export default function AlertsScreen({ businessId }) {
   const fetchAlerts = useCallback(async (pageNum = 0, append = false) => {
     try {
       const res = await fetch(
-        `http://localhost:8000/api/alerts?business_id=${businessId}&limit=${PAGE_SIZE}&offset=${pageNum * PAGE_SIZE}`
+        `${API}/api/alerts?business_id=${businessId}&limit=${PAGE_SIZE}&offset=${pageNum * PAGE_SIZE}`
       );
       if (!res.ok) throw new Error(`HTTP ${res.status}`);
       const data = await res.json();

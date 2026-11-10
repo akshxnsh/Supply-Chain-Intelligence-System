@@ -42,6 +42,7 @@ const card = { background: "var(--bg-card)", border: "1px solid var(--border)", 
 function PipelineBar({ onFinished }) {
   const [status, setStatus] = useState(null)
   const [msg, setMsg] = useState(null)
+  const [showSteps, setShowSteps] = useState(false)
   const wasRunning = useRef(false)
 
   const load = useCallback(async () => {
@@ -74,13 +75,19 @@ function PipelineBar({ onFinished }) {
   const last = status?.recent_runs?.[0]
   const ok = last?.status === "ok"
   return (
-    <div style={{ ...card, padding: "10px 14px", display: "flex", alignItems: "center", gap: 12, flexWrap: "wrap" }}>
+    <div style={{ ...card, padding: "10px 14px" }}>
+    <div style={{ display: "flex", alignItems: "center", gap: 12, flexWrap: "wrap" }}>
       <div style={{ fontSize: 13, color: "var(--text-secondary)", flex: 1, minWidth: 220 }}>
         {status?.running
           ? "Analysis running now (reading news, scoring risk, judging)…"
           : last
             ? <>Last analysis <b style={{ color: "var(--text-primary)" }}>{ago(last.finished_at || last.started_at)}</b> · {last.trigger} · {" "}
-                <span style={{ color: ok ? "var(--accent-green)" : "var(--accent-red)" }}>{ok ? "all steps ok" : last.status}</span></>
+                <span style={{ color: ok ? "var(--accent-green)" : "var(--accent-red)" }}>{ok ? "all steps ok" : last.status}</span>
+                {last.steps?.length > 0 && (
+                  <button onClick={() => setShowSteps(v => !v)} style={{ background: "none", border: "none", color: "var(--accent-blue)", fontSize: 12, cursor: "pointer", marginLeft: 8 }}>
+                    {showSteps ? "Hide steps" : "Show steps"}
+                  </button>
+                )}</>
             : status ? "No analysis has run yet." : "Pipeline status unavailable."}
         {msg && <span style={{ color: "var(--accent-orange)", marginLeft: 8 }}>{msg}</span>}
       </div>
@@ -88,6 +95,19 @@ function PipelineBar({ onFinished }) {
         background: "var(--accent-blue)", border: "none", borderRadius: 8, color: "#fff", fontWeight: 600, fontSize: 13,
         padding: "7px 16px", cursor: !status || status.running ? "not-allowed" : "pointer", opacity: !status || status.running ? 0.5 : 1,
       }}>{status?.running ? "Running…" : "Run analysis now"}</button>
+    </div>
+    {showSteps && last?.steps?.length > 0 && (
+      <div style={{ marginTop: 10, borderTop: "1px solid var(--border)", paddingTop: 8, display: "grid", gap: 4 }}>
+        {last.steps.map(st => (
+          <div key={st.name} style={{ fontSize: 12, color: "var(--text-secondary)", display: "flex", gap: 10, flexWrap: "wrap" }}>
+            <span style={{ width: 16, color: st.status === "ok" ? "var(--accent-green)" : "var(--accent-red)" }}>{st.status === "ok" ? "✓" : "✗"}</span>
+            <b style={{ width: 70, color: "var(--text-primary)" }}>{st.name}</b>
+            <span style={{ width: 50 }}>{st.seconds}s</span>
+            <span style={{ color: "var(--text-muted)", fontFamily: "monospace" }}>{JSON.stringify(st.summary)}</span>
+          </div>
+        ))}
+      </div>
+    )}
     </div>
   )
 }

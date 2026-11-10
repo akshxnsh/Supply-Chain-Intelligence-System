@@ -57,8 +57,11 @@ DEFAULT_BIZ = "demo-business-001"
 
 @app.get("/api/businesses")
 def get_businesses():
-    """List all registered businesses."""
-    return {"businesses": list_businesses()}
+    """List all registered businesses. `monitored` = the scheduled analysis covers it (PIPELINE_BUSINESSES); others have no alerts."""
+    from src.risk.company_view import monitored_business_ids
+
+    watched = set(monitored_business_ids())
+    return {"businesses": [{**b, "monitored": b.get("id") in watched} for b in list_businesses()]}
 
 @app.get("/api/status")
 def status(business_id: str = Query(default=DEFAULT_BIZ)):
@@ -343,6 +346,18 @@ def acknowledge_risk_alert_endpoint(alert_id: str):
         raise HTTPException(status_code=404, detail=f"Unknown alert: {alert_id}")
     invalidate("risk")
     return {"success": True, "alert_id": alert_id, "status": "acknowledged"}
+
+
+@app.get("/api/company")
+@cached("company", ttl=60)
+def get_company(business_id: str = Query(default=DEFAULT_BIZ)):
+    """What the business has on the way and on the shelf: in-transit shipments and days of stock per product category."""
+    from src.risk import company_view
+
+    try:
+        return {"business_id": business_id, "shipments": company_view.shipments(business_id), "stock": company_view.stock_cover(business_id)}
+    except Exception as e:
+        return {"business_id": business_id, "shipments": [], "stock": [], "error": str(e)}
 
 
 @app.get("/api/cache/stats")

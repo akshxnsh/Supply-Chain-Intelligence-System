@@ -12,6 +12,7 @@ from datetime import date, datetime, timezone
 from typing import Callable
 
 from src.ingestion.db import run_query_readonly
+from src.risk import company_view
 
 MAX_ROWS = 12
 MAX_TEXT = 300
@@ -55,21 +56,6 @@ SQL_ALERT_DETAIL = """
     FROM alerts WHERE alert_id = %(id)s AND business_id = %(b)s
 """
 
-SQL_SHIPMENTS = """
-    SELECT st.id AS shipment_id, bs.supplier_name, bs.country AS supplier_country, st.product_category, st.shipment_value_usd,
-           st.origin_port, st.destination_port, st.route, st.etd::date AS departed, st.eta::date AS arrives
-    FROM shipment_timetable st JOIN business_suppliers bs ON bs.id = st.supplier_id
-    WHERE st.business_id = %(b)s AND st.status = 'in_transit'
-    ORDER BY st.eta LIMIT %(limit)s
-"""
-
-SQL_INVENTORY = "SELECT product_category, inventory_value_usd FROM inventory WHERE business_id = %(b)s"
-SQL_ORDERS = """
-    SELECT product_category, order_value_usd, required_by_date FROM pending_orders
-    WHERE business_id = %(b)s AND status = 'pending'
-"""
-
-
 def make_tools(business_id: str) -> list[Callable]:
     """The tool functions the agent may call (ADK reads each function's name, signature and docstring)."""
 
@@ -109,7 +95,7 @@ def make_tools(business_id: str) -> list[Callable]:
             limit: how many shipments to return (1-12), soonest arrival first.
         """
         def go():
-            rows = run_query_readonly(SQL_SHIPMENTS, {"b": business_id, "limit": max(1, min(int(limit), MAX_ROWS))})
+            rows = company_view.shipments(business_id, min(max(1, int(limit)), MAX_ROWS))
             return {"count": len(rows), "shipments": [_plain(r) for r in rows]}
         return _safe(go)
 
@@ -117,19 +103,7 @@ def make_tools(business_id: str) -> list[Callable]:
         """Stock cover per product category: inventory value, pending customer order value, daily demand and how many days the stock lasts
         (computed by code, same formula as the alerts)."""
         def go():
-            from src.risk.config import load_config
-            from src.risk.exposure import CompanyData, stock_for_category
-
-            inv = {r["product_category"]: float(r["inventory_value_usd"]) for r in run_query_readonly(SQL_INVENTORY, {"b": business_id})}
-            orders = run_query_readonly(SQL_ORDERS, {"b": business_id})
-            today = datetime.now(timezone.utc).date()
-            cfg, company = load_config(), CompanyData(orders, inv, {})
-            out = []
-            for cat in sorted(set(inv) | {o["product_category"] for o in orders}):
-                s = stock_for_category(cat, company, 0.0, cfg, today)
-                pending = sum(float(o["order_value_usd"]) for o in orders if o["product_category"] == cat)
-                out.append({"product_category": cat, "inventory_value_usd": round(s.inventory_value), "pending_orders_value_usd": round(pending),
-                            "daily_demand_usd": s.daily_demand, "days_of_stock": s.days_of_stock})
+            out = company_view.stock_cover(business_id)
             return {"count": len(out), "categories": out}
         return _safe(go)
 

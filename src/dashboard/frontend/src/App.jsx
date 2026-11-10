@@ -8,9 +8,20 @@ import RiskDetailsScreen from "./screens/RiskDetailsScreen"
 import FreshnessScreen from "./screens/FreshnessScreen"
 import AskScreen from "./screens/AskScreen"
 import RiskAlertsScreen from "./screens/RiskAlertsScreen"
+import ShipmentsScreen from "./screens/ShipmentsScreen"
 
 import { API } from "./config";
 const DEFAULT_BIZ = "demo-business-001"
+const DEMO_SCREENS = ["risks", "alerts", "console"]
+
+function Banner({ color, children }) {
+  return (
+    <div style={{
+      margin: "16px 24px 0", padding: "9px 14px", borderRadius: 8, fontSize: 13, color: "var(--text-primary)",
+      background: `color-mix(in srgb, ${color} 12%, transparent)`, border: `1px solid color-mix(in srgb, ${color} 35%, transparent)`,
+    }}>{children}</div>
+  )
+}
 
 const SCREEN_TITLES = {
   dashboard: "Dashboard",
@@ -20,6 +31,7 @@ const SCREEN_TITLES = {
   console:   "Agent Console",
   ask:       "Ask ChainGuard",
   riskalerts: "Risk Alerts",
+  shipments: "Shipments & Stock",
 }
 
 function SunIcon() {
@@ -97,7 +109,9 @@ export default function App() {
     setError(null)
   }
 
-  const businessName = businesses.find(b => b.id === businessId)?.name || businessId
+  const current = businesses.find(b => b.id === businessId)
+  const businessName = current?.name || businessId
+  const notMonitored = current && current.monitored === false && !DEMO_SCREENS.includes(screen)
   const sidebarWidth = collapsed ? "var(--sidebar-width-collapsed)" : "var(--sidebar-width)"
 
   return (
@@ -112,6 +126,7 @@ export default function App() {
       <div style={{
         marginLeft: sidebarWidth,
         flex: 1,
+        minWidth: 0,
         display: "flex",
         flexDirection: "column",
         transition: "margin-left 0.25s ease",
@@ -127,7 +142,7 @@ export default function App() {
           background: "var(--bg-header)",
           flexShrink: 0,
         }}>
-          <span style={{ fontWeight: 700, color: "var(--text-primary)", fontSize: 15 }}>
+          <span style={{ fontWeight: 700, color: "var(--text-primary)", fontSize: 15, whiteSpace: "nowrap" }}>
             {SCREEN_TITLES[screen]}
           </span>
 
@@ -144,10 +159,13 @@ export default function App() {
                 fontSize: 13,
                 cursor: "pointer",
                 outline: "none",
+                minWidth: 0,
+                maxWidth: "36vw",
+                textOverflow: "ellipsis",
               }}
             >
               {businesses.map(b => (
-                <option key={b.id} value={b.id}>{b.name}</option>
+                <option key={b.id} value={b.id}>{b.name}{b.monitored === false ? " (not analysed)" : ""}</option>
               ))}
             </select>
 
@@ -182,8 +200,20 @@ export default function App() {
         </header>
 
         <main style={{ flex: 1, overflowY: "auto" }}>
+          {DEMO_SCREENS.includes(screen) && (
+            <Banner color="var(--accent-blue)">
+              <b>Simulation demo.</b> This screen shows the original simulation (a scripted disruption), not your live alerts.
+              For real alerts open <a href="#riskalerts" onClick={e => { e.preventDefault(); setScreen("riskalerts") }} style={{ color: "var(--accent-blue)" }}>Risk Alerts</a>.
+            </Banner>
+          )}
+          {notMonitored && (
+            <Banner color="var(--accent-yellow)">
+              <b>Not analysed yet.</b> The scheduled analysis only covers some businesses, so there is no live data for this one and an empty list does not mean it is safe.
+            </Banner>
+          )}
           {screen === "dashboard" && (
             <DashboardScreen
+              key={businessId}
               businessId={businessId}
               businessName={businessName}
               onNavigate={setScreen}
@@ -199,7 +229,8 @@ export default function App() {
           )}
           {screen === "freshness" && <FreshnessScreen />}
           {screen === "alerts"    && <AlertsScreen businessId={businessId} />}
-          {screen === "riskalerts" && <RiskAlertsScreen businessId={businessId} />}
+          {screen === "riskalerts" && <RiskAlertsScreen key={businessId} businessId={businessId} />}
+          {screen === "shipments"  && <ShipmentsScreen key={businessId} businessId={businessId} />}
           {screen === "ask"       && <AskScreen businessId={businessId} />}
           {screen === "console"   && (
             <TraceScreen
