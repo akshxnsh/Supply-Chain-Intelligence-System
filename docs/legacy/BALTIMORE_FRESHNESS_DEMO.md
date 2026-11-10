@@ -1,3 +1,5 @@
+> **Historical note.** This describes the original BigQuery / multi-agent version of the project, which has since been replaced (PostgreSQL on Neon, Fivetran connectors, a reader + judge pipeline). It is kept for reference only. See the top-level `README.md` for how the project works now.
+
 # Baltimore Bridge — Data Freshness Lifecycle Demo
 
 This demo shows the system transitioning from a **healthy baseline** to a

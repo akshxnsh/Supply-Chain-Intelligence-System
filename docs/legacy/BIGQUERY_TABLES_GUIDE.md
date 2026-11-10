@@ -1,3 +1,5 @@
+> **Historical note.** This describes the original BigQuery / multi-agent version of the project, which has since been replaced (PostgreSQL on Neon, Fivetran connectors, a reader + judge pipeline). It is kept for reference only. See the top-level `README.md` for how the project works now.
+
 # BigQuery Tables Setup Guide
 
 This document describes the BigQuery tables used by the Supply Chain Intelligence System and how they are wired into the codebase.
