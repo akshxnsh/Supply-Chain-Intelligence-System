@@ -11,7 +11,6 @@ from src.ingestion.queries import (
     query_inventory,
     query_pending_orders,
     query_port_status,
-    query_calibration_scores,
     query_recent_cycle_performance as _query_recent_cycle_performance,
     query_recent_events,
     query_recent_weather_alerts,
@@ -282,35 +281,26 @@ async def detect_black_swan(
     weather_alerts: list[dict[str, Any]],
     port_congestion_list: list[dict[str, Any]],
 ) -> str:
-    """Detect a multi-signal anomaly using the existing z-score logic."""
-    news_volume = len(disruption_events)
-    port_congestion = len(
-        [
-            port
-            for port in port_congestion_list
-            if port.get("congestion_score", 0) > 5.0
-        ]
-    )
+    """Detect a multi-signal anomaly: a news-volume spike AND a port-congestion spike at the same time.
 
+    News: articles in the last 24 h vs the daily counts of earlier days (same unit, real history; src/risk/black_swan.py).
+    With under 7 complete days of history there is no baseline, so news is NOT flagged (and the answer says why).
+    Ports: count of congested ports vs an ASSUMED baseline (3 +/- 1.5): there is no port history to measure one from.
+    """
+    from src.risk.black_swan import NewsBaseline, load_news_baseline
+
+    port_congestion = len([p for p in port_congestion_list if p.get("congestion_score", 0) > 5.0])
     try:
-        import statistics
-
-        scores = await asyncio.to_thread(query_calibration_scores, 50)
-        if len(scores) >= 5:
-            news_mean = statistics.mean(scores)
-            news_std = max(statistics.stdev(scores), 0.5)
-        else:
-            news_mean, news_std = 8.0, 2.5
-    except Exception as exc:
-        news_mean, news_std = 8.0, 2.5
-        print(f"[BLACK_SWAN] Calibration baseline query failed ({exc}).")
+        news = await asyncio.to_thread(load_news_baseline)
+    except Exception as exc:  # noqa: BLE001 - e.g. the news table does not exist yet
+        news = NewsBaseline(0, 0, None, None, None, False, f"news baseline unavailable ({exc.__class__.__name__})")
 
     port_mean, port_std = 3.0, 1.5
-    news_zscore = (news_volume - news_mean) / news_std if news_std > 0 else 0
-    port_zscore = (port_congestion - port_mean) / port_std if port_std > 0 else 0
+    news_zscore = news.zscore if news.zscore is not None else 0.0
+    port_zscore = (port_congestion - port_mean) / port_std
 
     anomaly_flags = []
-    if news_zscore > 2.5:
+    if news.enough_history and news_zscore > 2.5:
         anomaly_flags.append("news_volume_spike")
     if port_zscore > 2.5:
         anomaly_flags.append("port_congestion_spike")
@@ -324,6 +314,15 @@ async def detect_black_swan(
             },
             "triggered_signals": anomaly_flags,
             "weather_alert_count": len(weather_alerts),
+            "news_baseline": {
+                "articles_last_24h": news.current_24h,
+                "history_days": news.history_days,
+                "mean_per_day": news.mean,
+                "std_per_day": news.std,
+                "enough_history": news.enough_history,
+                "note": news.note,
+            },
+            "port_baseline": "assumed 3 +/- 1.5 congested ports (no history to measure it)",
         },
         default=str,
     )

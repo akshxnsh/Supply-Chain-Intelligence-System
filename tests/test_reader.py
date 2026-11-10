@@ -24,7 +24,7 @@ def item(i, text="Dockworkers at Rotterdam announce a 48-hour strike from Monday
 def good(item_id, **over):
     ev = {"item_id": item_id, "relevant": True, "event_type": "port_strike", "status": "expected", "direction": "delay",
           "locations": ["Rotterdam"], "countries": ["Netherlands"], "products": [], "start_date": "2026-11-16",
-          "end_date": "2026-11-18", "date_clarity": "implied", "location_clarity": "explicit", "summary": "Strike."}
+          "end_date": "2026-11-18", "rate_percent": None, "date_clarity": "implied", "location_clarity": "explicit", "summary": "Strike."}
     ev.update(over)
     return ev
 
@@ -216,7 +216,7 @@ def test_cache_key_changes_with_text_model_and_prompt_version():
     base = item(1)
     h = base.content_hash("m", PROMPT_VERSION)
     assert h == item(1).content_hash("m", PROMPT_VERSION)
-    assert h != base.content_hash("other-model", PROMPT_VERSION) and h != base.content_hash("m", "reader-v2")
+    assert h != base.content_hash("other-model", PROMPT_VERSION) and h != base.content_hash("m", "reader-v0")
     assert h != item(1, text="Different headline").content_hash("m", PROMPT_VERSION)
     assert h != item(1, ref=REF + timedelta(days=1)).content_hash("m", PROMPT_VERSION)
 

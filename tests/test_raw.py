@@ -12,7 +12,7 @@ DDL = {
         language text, source_country text, seen_at timestamptz, query_name text, _fivetran_deleted boolean, _fivetran_synced timestamptz)""",
     "fivetran_raw_gdacs": """CREATE TABLE fivetran_raw_gdacs.events (event_id text primary key, event_type text, name text, alert_level text,
         alert_score double precision, from_date timestamp, to_date timestamp, date_modified timestamp, is_current boolean, lat double precision,
-        lon double precision, country text, affected_countries_iso3 text, severity_value double precision, severity_unit text, severity_text text,
+        lon double precision, country text, affected_countries_iso_3 text, severity_value double precision, severity_unit text, severity_text text, report_url text,
         _fivetran_deleted boolean, _fivetran_synced timestamptz)""",
     "fivetran_raw_federal_register": """CREATE TABLE fivetran_raw_federal_register.documents (document_number text primary key, title text,
         doc_type text, publication_date date, effective_on date, comments_close_on date, dates_text text, abstract text, agencies text, url text,
@@ -24,8 +24,10 @@ DDL = {
     "fivetran_raw_ecb": """CREATE TABLE fivetran_raw_ecb.exchange_rates (currency text, rate_date date, eur_rate double precision,
         _fivetran_deleted boolean, _fivetran_synced timestamptz, primary key (currency, rate_date))""",
     "fivetran_raw_portwatch": """CREATE TABLE fivetran_raw_portwatch.ports (location_id text primary key, kind text, name text, country text,
-        iso3 text, locode text, lat double precision, lon double precision, _fivetran_deleted boolean, _fivetran_synced timestamptz);
-        CREATE TABLE fivetran_raw_portwatch.chokepoints (LIKE fivetran_raw_portwatch.ports INCLUDING ALL)""",
+        iso_3 text, locode text, lat double precision, lon double precision, _fivetran_deleted boolean, _fivetran_synced timestamptz);
+        -- real Fivetran layout: the chokepoint table has no country / iso / locode columns (they carry no data)
+        CREATE TABLE fivetran_raw_portwatch.chokepoints (location_id text primary key, kind text, name text,
+        lat double precision, lon double precision, _fivetran_deleted boolean, _fivetran_synced timestamptz)""",
 }
 
 

@@ -399,16 +399,6 @@ def query_suppliers_overview(business_id: str) -> list[dict]:
     return run_query(SQL_SUPPLIERS_OVERVIEW, {"business_id": business_id})
 
 
-def query_calibration_scores(limit: int = 50) -> list[float]:
-    """Recent severity scores from agent_calibration (used as the black-swan baseline)."""
-    rows = run_query(
-        "SELECT severity_scored FROM agent_calibration "
-        "WHERE severity_scored IS NOT NULL ORDER BY created_at DESC LIMIT %(limit)s",
-        {"limit": limit},
-    )
-    return [r["severity_scored"] for r in rows]
-
-
 def query_table_last_updated(table_name: str, schema: Optional[str] = None,
                              column: str = "updated_at") -> Optional[datetime]:
     """Newest value of a timestamp column (Postgres has no table-modified metadata).

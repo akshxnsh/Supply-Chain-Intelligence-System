@@ -1,0 +1,95 @@
+# Risk scoring and alert rules. Every number here is OUR OWN JUDGMENT (an estimate), not measured.
+# Step 9 checks whether High-band alerts really come true more often than Low-band ones; tune from that.
+
+# Likelihood used in  expected loss = likelihood x loss_if_it_happens  (fixed number per confidence band)
+likelihood_by_band:
+  high: 0.70
+  medium: 0.40
+  low: 0.15
+
+confidence:
+  # weights of the six parts; parts that do not apply to a signal (e.g. forecast distance for a news item) are
+  # left out and the remaining weights are renormalised
+  weights:
+    source: 0.30
+    confirmation: 0.20
+    forecast_distance: 0.15
+    clarity: 0.15
+    match: 0.10
+    age: 0.10
+  band_cutoffs: {high: 0.70, medium: 0.55}   # score >= high -> High, >= medium -> Medium, else Low
+  # (1) source type: official notice with an effective date > forecast model > single news article
+  source_scores:
+    observed_data: 0.90       # e.g. an exchange-rate move that already happened
+    official_notice: 1.00     # Federal Register notice
+    official_alert: 0.90      # GDACS disaster alert
+    forecast_model: 0.70      # one deterministic forecast (no uncertainty range available)
+    news: 0.35                # one news article (the number of outlets is handled by part 2)
+  # (2) independent confirmation (outlets after duplicates are grouped); diminishing returns after about three
+  confirmation_scores: {1: 0.20, 2: 0.60, 3: 0.85, 4: 1.00}
+  # (3) forecast distance: score = max(floor, 1 - per_day * days_ahead)
+  forecast_distance: {per_day: 0.10, floor: 0.20}
+  # (4) how clearly the text stated the date and the place
+  clarity_scores: {explicit: 1.0, implied: 0.6, unclear: 0.3}
+  # (5) match precision: how exactly the signal's place matched the shipment's route
+  match_scores: {port: 1.0, chokepoint: 1.0, country: 0.5, region: 0.4}
+  # (6) age of the information: (max age in days, score), first row that fits wins
+  age_scores: [[1, 1.0], [3, 0.9], [7, 0.7], [14, 0.5], [9999, 0.3]]
+
+# Expected delay (days) when a signal does not say how long the delay is, by event type
+default_delay_days:
+  port_strike: 5
+  port_closure: 10
+  port_congestion: 3
+  severe_weather: 2
+  natural_disaster: 4
+  canal_or_strait_closure: 14
+  accident_or_incident: 3
+  other_labor_action: 3
+  sanctions: 7
+  other: 2
+  unknown: 2
+
+# default length (days) of an event window when the text only gives a start
+default_event_duration_days: 3
+# how many days either side of a route checkpoint window still counts as "the ship is there"
+checkpoint_slack_days: 2
+# look this many days ahead for heads-up alerts
+horizon_days: 14
+
+loss_model:
+  delay_cost_rate_per_day: 0.005     # holding / expediting cost: 0.5% of shipment value per day of delay
+  late_order_loss_rate: 0.30         # share of an order's value lost (penalty + lost margin) when it ships late
+  assumed_tariff_increase_pct: 10.0  # used ONLY when a notice states no rate; the alert says so
+  tariff_horizon_days: 60            # shipments arriving within this many days of the effective date pay the tariff
+  default_replacement_lead_time_days: 7   # when no alternative supplier is known for the category
+
+# disaster (GDACS) matching radius around a route checkpoint, km
+disaster_radius_km: {TC: 500, FL: 150, EQ: 250, VO: 100}
+disaster_alert_levels: [Orange, Red]      # Green alerts are logged only
+disaster_event_type: {TC: severe_weather, FL: natural_disaster, EQ: natural_disaster, VO: natural_disaster}
+
+# forecast (Open-Meteo) thresholds that make a signal; first matching rule wins per location-day
+forecast_rules:
+  - {name: storm_winds, field: wind_gust_max_kmh, at_least: 90.0, delay_days: 2, event_type: severe_weather}
+  - {name: high_waves, field: wave_height_max_m, at_least: 5.0, delay_days: 2, event_type: severe_weather}
+  - {name: heavy_rain, field: precipitation_sum_mm, at_least: 80.0, delay_days: 1, event_type: severe_weather}
+
+fx:
+  lookback_days: 30
+  min_move_pct: 2.0          # supplier currency strengthening against USD by at least this much
+  # supplier country -> ECB currency code (USD / unlisted = no FX signal)
+  country_currency: {China: CNY, Germany: EUR, "South Korea": KRW, India: INR, Canada: CAD, Mexico: MXN, Turkey: TRY,
+                     Vietnam: VND, Japan: JPY, Poland: PLN, "United Kingdom": GBP, Brazil: BRL, Thailand: THB}
+
+# product category in our company data -> words that mean the same thing in a notice (used for tariff matching)
+product_keywords:
+  auto_parts: [auto, automotive, vehicle, car, truck, tire, tyre, brake, engine]
+  fasteners: [fastener, bolt, screw, nut, rivet, steel, wire]
+
+alerts:
+  default_notify_threshold_usd: 2000     # trader's money threshold (low default); trader overrides in trader_settings
+  watch_floor_fraction: 0.25             # below threshold but >= 25% of it -> Watch, below that -> Log
+  rare_event_guard_usd: 250000           # a possible loss this big notifies even at Low confidence
+  repeat_loss_increase_factor: 1.25      # re-notify only if expected loss grew by 25% ...
+  # ... or the confidence band rose, or the level rose

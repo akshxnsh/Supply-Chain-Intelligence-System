@@ -83,6 +83,30 @@ def predict_shipment_position(
     }
 
 
+def checkpoint_windows(shipment: dict[str, Any]) -> list[dict[str, Any]]:
+    """When will the shipment be at each route checkpoint?
+
+    Same assumption as predict_shipment_position: the route is split into equal segments, so checkpoint k covers
+    progress [k/n, (k+1)/n) of the journey. Returns [{'checkpoint', 'index', 'start', 'end'}] with UTC datetimes;
+    this is what lets a FORECAST or an expected event be checked against where the ship will be at that time.
+    """
+    route = split_route(shipment.get("route") or "")
+    if not route:
+        route = [c for c in (shipment.get("origin_port"), shipment.get("destination_port")) if c]
+    if not route:
+        return []
+    etd = _parse_timestamp(shipment.get("etd") or shipment.get("dispatch_timestamp"))
+    journey_hours = float(shipment.get("journey_time_hours") or 0)
+    if journey_hours <= 0:
+        eta = _parse_timestamp(shipment.get("eta") or shipment.get("estimated_arrival"))
+        journey_hours = max((eta - etd).total_seconds() / 3600, 1)
+    n = len(route)
+    step = journey_hours / n
+    from datetime import timedelta
+    return [{"checkpoint": cp, "index": i, "start": etd + timedelta(hours=i * step),
+             "end": etd + timedelta(hours=(i + 1) * step)} for i, cp in enumerate(route)]
+
+
 def predict_shipment_location(
     shipment: dict[str, Any],
     now: datetime | None = None,

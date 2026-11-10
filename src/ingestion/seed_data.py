@@ -461,6 +461,11 @@ def seed_supplier_reviews():
     ]
     load_rows("supplier_reviews", rows)
 
+def seed_trader_settings():
+    """The trader's own money threshold for Notify alerts (low default; the trader changes it)."""
+    load_rows("trader_settings", [{"business_id": "demo-business-001", "notify_threshold_usd": 2000.0}])
+
+
 def seed_all():
     print("🌱 Seeding PostgreSQL tables...\n")
     seed_business_suppliers()
@@ -471,6 +476,7 @@ def seed_all():
     seed_disruption_events()
     seed_weather_alerts()
     seed_agent_calibration()
+    seed_trader_settings()
     seed_tariff_updates()
     seed_inventory()
     seed_completed_orders()

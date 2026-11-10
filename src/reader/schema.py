@@ -39,6 +39,7 @@ class ReadEvent(BaseModel):
     products: list[str] = Field(default_factory=list, max_length=6)
     start_date: Optional[date] = None
     end_date: Optional[date] = None
+    rate_percent: Optional[float] = Field(default=None, ge=0, le=500, description="duty/tariff rate in percent if the text states one")
     date_clarity: Clarity = "unclear"
     location_clarity: Clarity = "unclear"
     summary: str = Field(default="", max_length=400)
@@ -62,7 +63,7 @@ class ReadEvent(BaseModel):
     def _clean_summary(cls, v):
         return (v or "").strip()[:400]
 
-    @field_validator("start_date", "end_date", mode="before")
+    @field_validator("start_date", "end_date", "rate_percent", mode="before")
     @classmethod
     def _blank_dates(cls, v):
         if v in ("", "unknown", "null", "None"):

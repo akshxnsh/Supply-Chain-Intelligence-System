@@ -26,7 +26,7 @@ SQL_ARTICLES = """
 
 SQL_DISASTERS = """
     SELECT event_id, event_type, name, alert_level, alert_score, from_date, to_date, date_modified,
-           is_current, lat, lon, country, affected_countries_iso3, severity_value, severity_unit, severity_text
+           is_current, lat, lon, country, affected_countries_iso_3, severity_value, severity_unit, severity_text, report_url
     FROM fivetran_raw_gdacs.events
     WHERE NOT _fivetran_deleted AND (is_current OR date_modified >= now() - make_interval(days => %(days)s))
     ORDER BY date_modified DESC
@@ -62,11 +62,19 @@ SQL_RATE_HISTORY = """
     ORDER BY rate_date
 """
 
+SQL_RATES_SINCE = """
+    SELECT currency, rate_date, eur_rate
+    FROM fivetran_raw_ecb.exchange_rates
+    WHERE NOT _fivetran_deleted AND rate_date >= current_date - %(days)s::int
+    ORDER BY rate_date, currency
+"""
+
 SQL_LOCATIONS = """
-    SELECT location_id, 'port' AS kind, name, country, iso3, locode, lat, lon FROM fivetran_raw_portwatch.ports
+    SELECT location_id, 'port' AS kind, name, country, iso_3 AS iso3, locode, lat, lon FROM fivetran_raw_portwatch.ports
     WHERE NOT _fivetran_deleted
     UNION ALL
-    SELECT location_id, 'chokepoint', name, country, iso3, locode, lat, lon FROM fivetran_raw_portwatch.chokepoints
+    -- Fivetran only creates columns that carry data: the chokepoint catalogue has no country / iso / locode columns
+    SELECT location_id, 'chokepoint', name, NULL::text, NULL::text, NULL::text, lat, lon FROM fivetran_raw_portwatch.chokepoints
     WHERE NOT _fivetran_deleted
 """
 
@@ -93,6 +101,10 @@ def latest_rates() -> list[dict]:
 
 def rate_history(currency: str, days: int = 90) -> list[dict]:
     return run_query(SQL_RATE_HISTORY, {"currency": currency, "days": days})
+
+
+def rates_since(days: int = 45) -> list[dict]:
+    return run_query(SQL_RATES_SINCE, {"days": days})
 
 
 def port_and_chokepoint_locations() -> list[dict]:
