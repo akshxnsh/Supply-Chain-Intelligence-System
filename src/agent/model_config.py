@@ -22,4 +22,5 @@ def _model(*names: str, default: str) -> str:
 # Reader: runs many times (batched), so a cheap high-quota model. (gemini-2.5-flash-lite is closed to new users since late 2026.)
 READER_MODEL = _model("READER_MODEL", "MODEL_NAME", default="gemini-3.5-flash-lite")
 # Judge: runs rarely, so a stronger model (severity + recommended action).
-JUDGE_MODEL = _model("JUDGE_MODEL", "MODEL_NAME", default="gemini-2.5-flash")
+# (Groq: 1,000 requests/day free and ~2 s per call; Gemini 2.5 Flash only 20 requests/day. Needs GROQ_API_KEY.)
+JUDGE_MODEL = _model("JUDGE_MODEL", default="openai/gpt-oss-120b")

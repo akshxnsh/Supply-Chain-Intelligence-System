@@ -19,12 +19,16 @@ from pathlib import Path
 from src.judge.schema import JudgeDecision
 from src.reader.limiter import RateLimiter, call_with_retry
 
+import os
+
 ROOT = Path(__file__).resolve().parents[2]
-CASES = ROOT / "eval" / "judge_cases.jsonl"
-GRADES = ROOT / "eval" / "judge_grades.jsonl"
-LLM_GRADES = ROOT / "eval" / "results" / "judge_llm_grades.jsonl"
-REPORT = ROOT / "eval" / "results" / "judge_eval.json"
-GRADER_MODEL = "gemini-3.5-flash-lite"  # must differ from the judged model (the answers were produced by gemini-3.6-flash)
+_TAG = os.getenv("EVAL_TAG", "")             # EVAL_TAG=groq keeps a second run next to the first (files get a _groq suffix)
+_SUF = f"_{_TAG}" if _TAG else ""
+CASES = ROOT / "eval" / f"judge_cases{_SUF}.jsonl"
+GRADES = ROOT / "eval" / f"judge_grades{_SUF}.jsonl"
+LLM_GRADES = ROOT / "eval" / "results" / f"judge_llm_grades{_SUF}.jsonl"
+REPORT = ROOT / "eval" / "results" / f"judge_eval{_SUF}.json"
+GRADER_MODEL = "gemini-3.5-flash-lite"  # must differ from the judged model (first run: gemini-3.6-flash; EVAL_TAG=groq run: openai/gpt-oss-120b)
 SEED = 20261110
 
 GRADER_PROMPT = """You check whether a recommendation is supported by the evidence it cites. Use ONLY the FACTS and EVIDENCE below.
@@ -60,7 +64,7 @@ def generate_cases(n_news: int = 6, n_notice: int = 8) -> list[dict]:
     from src.judge.evidence import build_bundle, fetch_source_texts
     from src.judge.judge import Judge
     from src.reader.cache import MemoryCache
-    from src.reader.client import GeminiClient
+    from src.reader.client import make_client
     from src.risk.pipeline import run_risk
 
     run = run_risk(persist_alerts=False)
@@ -70,7 +74,7 @@ def generate_cases(n_news: int = 6, n_notice: int = 8) -> list[dict]:
     notices = [r for r in rows if r.signal.source == "federal_register"]
     chosen = rnd.sample(news, min(n_news, len(news))) + rnd.sample(notices, min(n_notice, len(notices)))
     texts = fetch_source_texts(chosen)
-    judge = Judge(GeminiClient(), MemoryCache(), RateLimiter(6), model=JUDGE_MODEL)
+    judge = Judge(make_client(JUDGE_MODEL), MemoryCache(), RateLimiter(4), model=JUDGE_MODEL)
     cases = []
     for n, r in enumerate(chosen, 1):
         bundle = build_bundle(r, company, today, texts)

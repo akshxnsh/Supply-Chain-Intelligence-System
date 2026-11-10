@@ -67,6 +67,16 @@ class GeminiClient:
         )
 
 
+def make_client(model: str):
+    """The right client for a model name: ids with a '/' ('openai/gpt-oss-120b', 'qwen/qwen3.8-27b') are served by Groq,
+    everything else ('gemini-...') by Google. Raises LLMError(401) when that provider's key is missing."""
+    if "/" in model:
+        from src.reader.groq_client import GroqClient
+
+        return GroqClient()
+    return GeminiClient()
+
+
 def _retry_after_seconds(message: str) -> float | None:
     """Gemini 429 messages often contain 'Please retry in 12.5s' / 'retryDelay: 12s'."""
     m = re.search(r"retry(?: in|Delay['\": ]+)\s*([0-9]+(?:\.[0-9]+)?)s", message)

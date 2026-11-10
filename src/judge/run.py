@@ -21,14 +21,14 @@ from src.ingestion.db import get_pool
 from src.judge.evidence import build_bundle, fetch_source_texts
 from src.judge.judge import Judge, JudgeResult, fallback_decision
 from src.reader.cache import make_cache
-from src.reader.client import GeminiClient
+from src.reader.client import make_client as _make_client
 from src.reader.limiter import LLMError, RateLimiter
 from src.reader.store import DbCallLogger
 from src.reader.tracing import setup_tracing, span
 from src.risk.pipeline import run_risk
 
 JUDGED_LEVELS = ("notify",)
-DEFAULT_RPM = 4    # gemini-2.5-flash / 3.6-flash free tier: 5 requests/minute and only 20 per day
+DEFAULT_RPM = 4    # Groq free tier allows 30/min but only 8,000 tokens/min (a judge call is about 1,400 tokens: ~5 a minute)
 # Free-tier quota for the judge model was 20 requests/day in Nov 2026, so only the biggest alerts get a model call per run;
 # the rest keep the rule-based recommendation (judge_source = fallback, with the reason stored).
 DEFAULT_MAX_MODEL_CALLS = 10
@@ -52,7 +52,7 @@ def save_judgement(alert_id: str, result: JudgeResult) -> None:
 
 def make_client():
     try:
-        return GeminiClient()
+        return _make_client(JUDGE_MODEL)
     except LLMError as exc:
         logging.getLogger(__name__).warning("%s -> rule-based answers only", exc)
         return None

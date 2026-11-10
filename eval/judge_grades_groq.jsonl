@@ -1,0 +1,15 @@
+{"case_id": "real-01", "supported": "yes", "note": "", "graded_by": "claude-draft (needs Akshansh's review)"}
+{"case_id": "real-02", "supported": "yes", "note": "", "graded_by": "claude-draft (needs Akshansh's review)"}
+{"case_id": "real-03", "supported": "yes", "note": "", "graded_by": "claude-draft (needs Akshansh's review)"}
+{"case_id": "real-04", "supported": "yes", "note": "", "graded_by": "claude-draft (needs Akshansh's review)"}
+{"case_id": "real-05", "supported": "partly", "note": "restates contradictory facts ('now', 'started', 'expected')", "graded_by": "claude-draft (needs Akshansh's review)"}
+{"case_id": "real-06", "supported": "yes", "note": "", "graded_by": "claude-draft (needs Akshansh's review)"}
+{"case_id": "real-07", "supported": "yes", "note": "", "graded_by": "claude-draft (needs Akshansh's review)"}
+{"case_id": "real-08", "supported": "yes", "note": "", "graded_by": "claude-draft (needs Akshansh's review)"}
+{"case_id": "real-09", "supported": "yes", "note": "", "graded_by": "claude-draft (needs Akshansh's review)"}
+{"case_id": "control-01", "supported": "no", "note": "invented claim", "graded_by": "claude-draft (needs Akshansh's review)"}
+{"case_id": "control-02", "supported": "partly", "note": "citation to evidence no longer in the list; statement is facts-supported", "graded_by": "claude-draft (needs Akshansh's review)"}
+{"case_id": "control-03", "supported": "no", "note": "invented claim", "graded_by": "claude-draft (needs Akshansh's review)"}
+{"case_id": "control-04", "supported": "no", "note": "main claim cites evidence not in the list; recommendation rests on it", "graded_by": "claude-draft (needs Akshansh's review)"}
+{"case_id": "control-05", "supported": "no", "note": "invented claim", "graded_by": "claude-draft (needs Akshansh's review)"}
+{"case_id": "control-06", "supported": "partly", "note": "claim 1 cites evidence not in the list; claims 2-3 facts-supported", "graded_by": "claude-draft (needs Akshansh's review)"}
