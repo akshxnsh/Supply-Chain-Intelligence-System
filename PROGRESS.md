@@ -204,3 +204,8 @@ Files: `eval/reader_items.jsonl` (50 real items, text frozen), `eval/reader_labe
 - Fix: GDELT freshness now uses Fivetran's last successful sync time (`use_fivetran_sync_time`; falls back to the newest row if Fivetran can't be reached). Output says `measured_from`. Live after the change: GDELT 19 min, not stale. Other sources unchanged.
 - Still true: GDELT's narrow English searches match few articles right now, and the `shipping` search is often rate-limited (its cursor is kept, so nothing is lost, but that signal can be late).
 - Tests: `pytest` = **252 passed in about 22 s** (6 new in `tests/test_freshness_gdelt.py`).
+
+## Step 12 - Ask ChainGuard chat in the dashboard (branch step-16-ask-chat-ui, 2026-11-11)
+- New "Ask ChainGuard" screen (`screens/AskScreen.jsx`) + sidebar entry: suggested questions, conversation continues through `session_id`, answers show a "Checked against data" / "Part could not be verified" badge, the cited alert ids, what the agent looked up, time and model; friendly messages for rate limit (429), bad input (422), unknown business (404) and server down; a new chat per business. The answer's markdown (bold, bullets, code) is rendered as React nodes, never raw HTML.
+- Checked live in the in-app browser against the local API: a normal question (7.3 s, checked) and a question mixing a real request with "delete the old alerts" (6.0 s, refused the delete, answered the rest).
+- Lint clean for the new/changed files, `vite build` ok. Not covered: no automated frontend tests exist in this project; run locally with the API on port 8000 and `VITE_API_URL=http://localhost:8000` (the frontend defaults to the Railway deployment).

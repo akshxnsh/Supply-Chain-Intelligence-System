@@ -6,6 +6,7 @@ import TraceScreen from "./screens/TraceScreen"
 import DashboardScreen from "./screens/DashboardScreen"
 import RiskDetailsScreen from "./screens/RiskDetailsScreen"
 import FreshnessScreen from "./screens/FreshnessScreen"
+import AskScreen from "./screens/AskScreen"
 
 import { API } from "./config";
 const DEFAULT_BIZ = "demo-business-001"
@@ -16,6 +17,7 @@ const SCREEN_TITLES = {
   freshness: "Freshness Monitor",
   alerts:    "Active Alerts",
   console:   "Agent Console",
+  ask:       "Ask ChainGuard",
 }
 
 function SunIcon() {
@@ -195,6 +197,7 @@ export default function App() {
           )}
           {screen === "freshness" && <FreshnessScreen />}
           {screen === "alerts"    && <AlertsScreen businessId={businessId} />}
+          {screen === "ask"       && <AskScreen businessId={businessId} />}
           {screen === "console"   && (
             <TraceScreen
               businessId={businessId}
