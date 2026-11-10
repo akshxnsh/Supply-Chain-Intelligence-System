@@ -52,8 +52,8 @@ class RedisCache:
             logger.warning("redis set failed (%s); result not cached", exc)
 
 
-def make_cache(url: str | None = None):
-    """Redis cache if REDIS_URL works, otherwise an in-memory fallback."""
+def make_cache(url: str | None = None, prefix: str = KEY_PREFIX):
+    """Redis cache if REDIS_URL works, otherwise an in-memory fallback. `prefix` keeps reader and judge keys apart."""
     url = url if url is not None else os.getenv("REDIS_URL")
     if not url:
         logger.info("REDIS_URL not set: using in-memory cache")
@@ -63,7 +63,7 @@ def make_cache(url: str | None = None):
 
         client = redis.Redis.from_url(url, socket_timeout=3, socket_connect_timeout=3, decode_responses=True)
         client.ping()
-        return RedisCache(client)
+        return RedisCache(client, prefix)
     except Exception as exc:  # noqa: BLE001
         logger.warning("Redis unavailable (%s): using in-memory cache", exc)
         return MemoryCache()

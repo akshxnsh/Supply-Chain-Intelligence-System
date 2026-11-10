@@ -211,7 +211,7 @@ def run_risk(business_id: str = "demo-business-001", today: date | None = None, 
         "business_id": business_id, "today": today.isoformat(), "threshold_usd": threshold, "shipments": len(shipments),
         "signals_by_source": dict(Counter(s.source for s in signals)), "alerts": len(rows),
         "alerts_by_level": dict(Counter(r.level for r in rows)), "alerts_by_type": dict(Counter(r.alert_type for r in rows)),
-        "notifications_this_run": sum(1 for r in rows if r.notify_now), "rows": rows,
+        "notifications_this_run": sum(1 for r in rows if r.notify_now), "rows": rows, "company": company, "today_date": today,
     }
 
 
@@ -219,6 +219,7 @@ if __name__ == "__main__":
     logging.basicConfig(level=logging.INFO, format="%(levelname)s: %(message)s")
     result = run_risk(sys.argv[1] if len(sys.argv) > 1 else "demo-business-001")
     rows = result.pop("rows")
+    result.pop("company"), result.pop("today_date")
     print(json.dumps(result, indent=2, default=str))
     for r in sorted(rows, key=lambda x: -x.decision.expected_loss_usd)[:10]:
         print(f"- [{r.level:6}] {r.alert_type:8} {r.signal.title[:70]:70} exp.loss ${r.decision.expected_loss_usd:>10,.0f} ({r.confidence.band})")
