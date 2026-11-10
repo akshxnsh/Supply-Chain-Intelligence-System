@@ -78,3 +78,4 @@ psycopg[binary]==3.3.4
 psycopg-pool==3.3.3
 redis==8.1.0
 google-genai==2.7.0
+fakeredis==2.40.0
