@@ -9,7 +9,9 @@ sys.path.insert(0, os.path.dirname(os.path.dirname(
 from src.agent.runtime import run_agent_cycle_async, _persist_alert_if_new
 from src.agent.tools import generate_purchase_order
 from src.agent.business_registry import list_businesses, get_business
-from src.ingestion.queries import query_alerts_page, query_all_alerts, query_suppliers_overview
+from src.ingestion.queries import (acknowledge_risk_alert, query_alerts_page, query_all_alerts, query_risk_alert,
+                                   query_risk_alerts, query_suppliers_overview)
+from src.dashboard.cache import cached, get_cache, invalidate
 import asyncio as _asyncio
 from dataclasses import dataclass, field
 
@@ -92,6 +94,7 @@ async def simulate_disruption(business_id: str = Query(default=DEFAULT_BIZ)):
             state.last_result = result
             try:
                 await _asyncio.to_thread(_persist_alert_if_new, result, business_id)
+                invalidate("alerts")
             except Exception as _persist_exc:
                 print(f"[PERSIST] Warning: alert persistence failed: {_persist_exc}")
             return {
@@ -149,6 +152,7 @@ def get_trace(business_id: str = Query(default=DEFAULT_BIZ)):
     return {"trace": state.last_result, "business_id": business_id}
 
 @app.get("/api/alerts")
+@cached("alerts", ttl=30)
 def get_alerts(
     business_id: str = Query(default=DEFAULT_BIZ),
     limit: int = Query(default=10, ge=1, le=100),
@@ -162,6 +166,7 @@ def get_alerts(
         return {"alerts": [], "error": str(e)}
 
 @app.get("/api/alerts/all")
+@cached("alerts", ttl=30)
 def get_all_alerts(limit: int = Query(default=20, ge=1, le=100)):
     """Aggregate alerts across all registered businesses, ordered by severity."""
     try:
@@ -176,11 +181,13 @@ def acknowledge_alert_endpoint(alert_id: str):
     from src.ingestion.queries import acknowledge_alert
     try:
         acknowledge_alert(alert_id)
+        invalidate("alerts")
         return {"success": True, "alert_id": alert_id, "status": "acknowledged"}
     except Exception as e:
         return {"success": False, "error": str(e)}
 
 @app.get("/api/suppliers")
+@cached("suppliers", ttl=300)
 def get_suppliers(business_id: str = Query(default=DEFAULT_BIZ)):
     """Returns the current supplier list with risk signals for the given business."""
     try:
@@ -258,6 +265,7 @@ def approve_action(req: ApproveActionRequest, business_id: str = Query(default=D
 # ── Freshness endpoints ────────────────────────────────────────────────────────
 
 @app.get("/api/freshness")
+@cached("freshness", ttl=60)
 async def get_freshness():
     """Return freshness status for all configured tables."""
     from src.agent.freshness_agent import check_table_freshness
@@ -284,9 +292,61 @@ async def refresh_table(table_name: str):
         raise HTTPException(status_code=404, detail=f"Unknown table: {table_name}")
     try:
         result = json.loads(await refresh_stale_table(table_name))
+        invalidate("freshness")
         return {"success": True, "result": result}
     except Exception as e:
         return {"success": False, "error": str(e)}
+
+
+# ── Risk alerts (the new pipeline: expected loss, confidence band, act-by date, evidence) ──────────────────
+
+@app.get("/api/risk/alerts")
+@cached("risk", ttl=30)
+def get_risk_alerts(
+    business_id: str = Query(default=DEFAULT_BIZ),
+    level: str | None = Query(default=None, pattern="^(notify|watch|log)$"),
+    status: str | None = Query(default="open", pattern="^(open|acknowledged|resolved)$"),
+    limit: int = Query(default=20, ge=1, le=100),
+    offset: int = Query(default=0, ge=0),
+):
+    """Open risk alerts, Notify first, then by expected loss."""
+    try:
+        rows = query_risk_alerts(business_id, level, status, limit, offset)
+        return {"alerts": rows, "count": len(rows), "limit": limit, "offset": offset}
+    except Exception as e:
+        return {"alerts": [], "error": str(e)}
+
+
+@app.get("/api/risk/alerts/{alert_id}")
+@cached("risk", ttl=30)
+def get_risk_alert(alert_id: str):
+    """One alert with everything behind it: money, confidence reasons, evidence, why it did or did not notify, the judge's answer."""
+    try:
+        row = query_risk_alert(alert_id)
+    except Exception as e:
+        return {"error": str(e)}
+    if row is None:
+        raise HTTPException(status_code=404, detail=f"Unknown alert: {alert_id}")
+    return row
+
+
+@app.post("/api/risk/alerts/{alert_id}/acknowledge")
+def acknowledge_risk_alert_endpoint(alert_id: str):
+    try:
+        found = acknowledge_risk_alert(alert_id)
+    except Exception as e:
+        return {"success": False, "error": str(e)}
+    if not found:
+        raise HTTPException(status_code=404, detail=f"Unknown alert: {alert_id}")
+    invalidate("risk")
+    return {"success": True, "alert_id": alert_id, "status": "acknowledged"}
+
+
+@app.get("/api/cache/stats")
+def cache_stats():
+    """Hit / miss counters of the Redis response cache."""
+    cache = get_cache()
+    return cache.stats() if cache else {"enabled": False}
 
 
 # ── Latest analysis (business data endpoint — not the developer trace) ─────────

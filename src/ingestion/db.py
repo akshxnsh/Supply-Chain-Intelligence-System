@@ -9,6 +9,7 @@ from __future__ import annotations
 import atexit
 import os
 import threading
+import time
 from typing import Any, Iterable, Sequence
 
 import psycopg
@@ -29,6 +30,20 @@ def database_url() -> str:
     return url
 
 
+CHECK_AFTER_IDLE_S = float(os.getenv("DB_CHECK_AFTER_IDLE_S", "30"))
+
+
+def _check(conn) -> None:
+    """Pool health check on checkout. The stock check is one extra network round trip per query (about 190 ms to Neon from
+    here, doubling every query), so a connection verified in the last CHECK_AFTER_IDLE_S seconds is trusted. Neon closes
+    idle connections after minutes, never within seconds. DB_CHECK_AFTER_IDLE_S=0 restores 'check every time'."""
+    now = time.monotonic()
+    if CHECK_AFTER_IDLE_S > 0 and now - getattr(conn, "_cg_checked", 0.0) < CHECK_AFTER_IDLE_S:
+        return
+    ConnectionPool.check_connection(conn)
+    conn._cg_checked = now
+
+
 def get_pool() -> ConnectionPool:
     global _pool
     if _pool is None:
@@ -39,7 +54,7 @@ def get_pool() -> ConnectionPool:
                     min_size=int(os.getenv("DB_POOL_MIN", "1")),
                     max_size=int(os.getenv("DB_POOL_MAX", "10")),
                     kwargs={"row_factory": dict_row},
-                    check=ConnectionPool.check_connection,  # drops connections Neon closed while idle
+                    check=_check,  # drops connections Neon closed while idle (see _check)
                     open=True,
                 )
     return _pool

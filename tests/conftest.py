@@ -45,3 +45,4 @@ def pg_url():
         os.environ["DATABASE_URL"] = old
     with psycopg.connect(base, autocommit=True) as c:
         c.execute(f'DROP SCHEMA "{schema}" CASCADE')
+os.environ.setdefault("API_CACHE", "0")  # tests never touch the real Redis cache; cache tests configure fakeredis explicitly

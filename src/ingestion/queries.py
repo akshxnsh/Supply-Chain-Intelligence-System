@@ -416,6 +416,33 @@ def query_table_last_updated(table_name: str, schema: Optional[str] = None,
     return rows[0]["last_updated"] if rows else None
 
 
+SQL_RISK_ALERTS = """
+    SELECT alert_id, alert_type, level, signal_kind, source, event_type, title, status, exposure_usd, expected_loss_usd,
+           confidence_band, confidence_score, stockout_risk, lead_time_days, act_by, action, judge_source, last_seen
+    FROM alerts
+    WHERE business_id = %(business_id)s
+      AND (%(level)s::text IS NULL OR level = %(level)s)
+      AND (%(status)s::text IS NULL OR status = %(status)s)
+    ORDER BY CASE level WHEN 'notify' THEN 0 WHEN 'watch' THEN 1 ELSE 2 END, expected_loss_usd DESC, last_seen DESC
+    LIMIT %(limit)s OFFSET %(offset)s
+"""
+
+
+def query_risk_alerts(business_id: str, level: Optional[str], status: Optional[str], limit: int, offset: int) -> list[dict]:
+    """Risk alerts (the `alerts` table written by src/risk/pipeline.py), Notify first, then by expected loss."""
+    return run_query(SQL_RISK_ALERTS, {"business_id": business_id, "level": level, "status": status,
+                                       "limit": limit, "offset": offset})
+
+
+def query_risk_alert(alert_id: str) -> Optional[dict]:
+    rows = run_query("SELECT * FROM alerts WHERE alert_id = %(id)s", {"id": alert_id})
+    return rows[0] if rows else None
+
+
+def acknowledge_risk_alert(alert_id: str) -> bool:
+    return execute("UPDATE alerts SET status = 'acknowledged', updated_at = now() WHERE alert_id = %(id)s", {"id": alert_id}) > 0
+
+
 # ── Writes ────────────────────────────────────────────────────────────────────
 
 def save_alert(alert: dict) -> None:
