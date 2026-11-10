@@ -349,6 +349,35 @@ def cache_stats():
     return cache.stats() if cache else {"enabled": False}
 
 
+# ── Pipeline: manual trigger and status (the scheduled run uses the same code: python -m src.run_all) ────────
+
+@app.post("/api/pipeline/run", status_code=202)
+def trigger_pipeline(business_id: str | None = Query(default=None), skip: str = Query(default="")):
+    """Start one pipeline run now (group news, read new items, score risk, judge). Returns at once; poll /api/pipeline/status."""
+    from src import run_all as pipeline
+
+    skipped = tuple(s for s in skip.split(",") if s)
+    bad = [s for s in skipped if s not in pipeline.STEP_ORDER]
+    if bad:
+        raise HTTPException(status_code=422, detail=f"unknown step(s) {bad}; valid: {list(pipeline.STEP_ORDER)}")
+    if pipeline.is_running():
+        raise HTTPException(status_code=409, detail="A pipeline run is already in progress")
+    threading.Thread(target=pipeline.run_all, daemon=True,
+                     kwargs={"trigger": "manual-api", "businesses": [business_id] if business_id else None, "skip": skipped}).start()
+    return {"started": True, "skip": list(skipped)}
+
+
+@app.get("/api/pipeline/status")
+def pipeline_status(limit: int = Query(default=5, ge=1, le=50)):
+    """Is a run in progress, and what did the last runs do."""
+    from src import run_all as pipeline
+
+    try:
+        return {"running": pipeline.is_running(), "recent_runs": pipeline.recent_runs(limit)}
+    except Exception as e:
+        return {"running": False, "recent_runs": [], "error": str(e)}
+
+
 # ── Latest analysis (business data endpoint — not the developer trace) ─────────
 
 @app.get("/api/latest-analysis")

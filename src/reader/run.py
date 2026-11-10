@@ -25,6 +25,23 @@ from src.reader.tracing import setup_tracing, span
 DEFAULT_RPM = 12   # gemini-3.5-flash-lite free tier: 15 requests/minute (AI Studio, Nov 2026)
 
 
+def run_reader(days: int = 7, batch_size: int = 10, dry_run: bool = False) -> dict:
+    """Read every new or changed item with the model and store the events. Returns the numbers (no printing)."""
+    items = store.build_items(days=days)
+    pending = store.pending_items(items, READER_MODEL)
+    out = {"items_in_window": len(items), "pending": len(pending)}
+    if dry_run or not pending:
+        return out
+    setup_tracing()
+    reader = Reader(GeminiClient(), make_cache(), RateLimiter(float(os.getenv("READER_RPM", DEFAULT_RPM))),
+                    model=READER_MODEL, batch_size=batch_size, call_logger=store.DbCallLogger())
+    with span("reader.run", items=len(pending), model=READER_MODEL):
+        results, stats = reader.read(pending)
+    out["saved_events"] = store.save_results(results, READER_MODEL)
+    out.update(stats.to_dict())
+    return out
+
+
 def main() -> None:
     logging.basicConfig(level=logging.INFO, format="%(levelname)s: %(message)s")
     ap = argparse.ArgumentParser()
@@ -32,20 +49,10 @@ def main() -> None:
     ap.add_argument("--dry-run", action="store_true")
     ap.add_argument("--batch-size", type=int, default=10)
     args = ap.parse_args()
-
-    items = store.build_items(days=args.days)
-    pending = store.pending_items(items, READER_MODEL)
-    print(f"{len(items)} items in window, {len(pending)} pending (new or changed)")
-    if args.dry_run or not pending:
-        return
-
-    setup_tracing()
-    reader = Reader(GeminiClient(), make_cache(), RateLimiter(float(os.getenv("READER_RPM", DEFAULT_RPM))),
-                    model=READER_MODEL, batch_size=args.batch_size, call_logger=store.DbCallLogger())
-    with span("reader.run", items=len(pending), model=READER_MODEL):
-        results, stats = reader.read(pending)
-    saved = store.save_results(results, READER_MODEL)
-    print(json.dumps({"saved_events": saved, **stats.to_dict()}, indent=2))
+    result = run_reader(args.days, args.batch_size, args.dry_run)
+    print(f"{result['items_in_window']} items in window, {result['pending']} pending (new or changed)")
+    if "saved_events" in result:
+        print(json.dumps(result, indent=2))
 
 
 if __name__ == "__main__":
