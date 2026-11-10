@@ -31,6 +31,11 @@ class Decision:
 
 def decide(exposure: Exposure, conf: ConfidenceResult, threshold_usd: float, cfg: dict) -> Decision:
     a = cfg["alerts"]
+    if exposure.unpriced_reason:  # facts only: a loss that cannot be priced is never a loud alert
+        return Decision("watch", 0.0, cfg["likelihood_by_band"][conf.band],
+                        [f"cannot price this: {exposure.unpriced_reason}",
+                         f"shipments worth ${exposure.value_at_risk_usd:,.0f} match the notice",
+                         "unpriced -> Watch only (check the duty rate manually); it can never Notify"])
     likelihood = cfg["likelihood_by_band"][conf.band]
     expected = round(likelihood * exposure.loss_if_happens_usd, 2)
     why = [f"possible loss ${exposure.loss_if_happens_usd:,.0f} x likelihood {likelihood:.2f} ({conf.band} confidence) = expected loss ${expected:,.0f}"]

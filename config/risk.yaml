@@ -60,7 +60,7 @@ horizon_days: 14
 loss_model:
   delay_cost_rate_per_day: 0.005     # holding / expediting cost: 0.5% of shipment value per day of delay
   late_order_loss_rate: 0.30         # share of an order's value lost (penalty + lost margin) when it ships late
-  assumed_tariff_increase_pct: 10.0  # used ONLY when a notice states no rate; the alert says so
+  # no assumed tariff rate: a notice that states no duty rate cannot be priced, so it can only be a Watch ("check the rate manually")
   tariff_horizon_days: 60            # shipments arriving within this many days of the effective date pay the tariff
   default_replacement_lead_time_days: 7   # when no alternative supplier is known for the category
 

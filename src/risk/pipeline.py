@@ -103,6 +103,8 @@ def default_action(exposure: Exposure, company: CompanyData, act_by: date | None
         return f"Order replacement {s.category}{who} {when}: stock lasts {s.days_of_stock:g} days, a {s.delay_days:g}-day delay plus {s.replacement_lead_days:g}-day lead time would run it out."
     if sig.kind == DELAY:
         return "Warn customers with orders due soon and monitor; stock should cover the delay."
+    if sig.kind == TARIFF and sig.rate_percent is None:
+        return "Check the duty rate in the notice: it does not state one, so the cost cannot be priced yet."
     if sig.kind == TARIFF:
         when = f" from {sig.start.isoformat()}" if sig.start else ""
         return f"Check landed cost: {sig.rate_percent:g}% duty{when}. Consider bringing orders forward or another origin."
@@ -118,7 +120,7 @@ def evaluate(signals: list[Signal], shipments: list[dict], company: CompanyData,
         if not ms:
             continue
         exposure = compute_exposure(sig, ms, company, cfg, today)
-        if exposure.loss_if_happens_usd <= 0 and not exposure.stockout_risk:
+        if exposure.loss_if_happens_usd <= 0 and not exposure.stockout_risk and not exposure.unpriced_reason:
             continue
         conf = compute_confidence(ConfidenceInput(
             source_class=sig.source_class, independent_sources=sig.independent_sources, days_ahead=sig.days_ahead,
@@ -183,7 +185,7 @@ def persist(rows: list[AlertRow], cfg: dict, now: datetime | None = None) -> Non
                 "signal_kind": sig.kind, "source": sig.source, "event_type": sig.event_type, "title": sig.title[:500],
                 "affected_shipments": Jsonb(e.affected_shipment_ids), "affected_suppliers": Jsonb(e.affected_suppliers),
                 "exposure_usd": e.loss_if_happens_usd, "expected_loss_usd": r.decision.expected_loss_usd,
-                "loss_components": Jsonb(e.components), "confidence_band": r.confidence.band,
+                "loss_components": Jsonb({**e.components, **({"value_at_risk_usd": e.value_at_risk_usd} if e.unpriced_reason else {})}), "confidence_band": r.confidence.band,
                 "confidence_score": r.confidence.score, "confidence_reasons": Jsonb(r.confidence.reasons),
                 "stockout_risk": e.stockout_risk, "lead_time_days": r.lead_time_days, "event_start": start, "event_end": end,
                 "act_by": r.act_by, "action": r.action, "evidence": Jsonb(sig.evidence),

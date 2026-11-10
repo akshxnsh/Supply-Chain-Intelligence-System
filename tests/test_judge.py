@@ -244,3 +244,12 @@ def test_per_run_cap_sends_only_the_biggest_alerts_to_the_model(pg_url):
     assert by_loss[2000.0].source == "fallback" and "per-run cap of 1" in by_loss[2000.0].issues[0]
     assert by_loss[1000.0].source == "fallback"
     assert [r.decision.expected_loss_usd for r, _ in out] == [3000.0, 2000.0, 1000.0]
+
+
+def test_fallback_for_an_unpriced_duty_notice_passes_verification():
+    sig = tariff_signal(rate_percent=None, evidence=[])
+    (row,) = evaluate([sig], [shipment()], company(), PORTS, CFG, TODAY, 2000.0, "biz")
+    b = build_bundle(row, company(), TODAY)
+    fb = fallback_decision(row, b)
+    assert b.facts["tariff"] == {"rate_percent": None, "rate_stated": False}
+    assert "cannot be priced" in fb.claims[0].statement and verify(fb, b) == []

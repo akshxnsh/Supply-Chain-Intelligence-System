@@ -27,4 +27,4 @@ Run: `python -m src.risk.pipeline [business_id]` (writes the `alerts` table).
 
 Known simplifications (honest): the delay length is a config default per event type (no source states it); stockout ignores other
 incoming shipments; pending orders are assumed spread evenly until their last due date; route checkpoints share the journey time
-equally; the tariff rate is the reader's `rate_percent` or a flagged assumption (10%).
+equally; a tariff is priced ONLY with a duty rate the notice states (the reader's `rate_percent`); with no stated rate nothing is guessed: the alert is a Watch that says "check the rate manually" and can never Notify.

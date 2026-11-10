@@ -143,10 +143,10 @@ def test_events_become_delay_or_tariff_signals():
                   countries=["Germany"], products=["auto parts"], rate_percent=25.0),
         event_row(event_id="news:c9", relevant=False)], CFG, TODAY)[:3] + [None]
     assert delay.kind == "delay" and delay.source_class == "news" and delay.expected_delay_days == CFG["default_delay_days"]["port_strike"]
-    assert tariff.kind == "tariff" and tariff.source_class == "official_notice" and tariff.rate_percent == 25.0 and not tariff.rate_assumed
+    assert tariff.kind == "tariff" and tariff.source_class == "official_notice" and tariff.rate_percent == 25.0
     assert len(signals_from_events([event_row(relevant=False)], CFG, TODAY)) == 0
     no_rate = signals_from_events([event_row(event_type="tariff_or_trade_rule", direction="higher_cost")], CFG, TODAY)[0]
-    assert no_rate.rate_assumed and no_rate.rate_percent == CFG["loss_model"]["assumed_tariff_increase_pct"]
+    assert no_rate.rate_percent is None            # never guessed: an unstated rate stays unknown
 
 
 def test_signal_window_and_now_vs_headsup():
@@ -274,9 +274,10 @@ def test_tariff_and_fx_loss_formulas():
     t = tariff_signal()
     exp = compute_exposure(t, [match_tariff(t, shipment(), PORTS, CFG, TODAY)], company(), CFG, TODAY)
     assert exp.components["tariff"] == pytest.approx(182000 * 0.25) and not exp.assumptions
-    assumed = tariff_signal(rate_percent=10.0, rate_assumed=True)
-    exp2 = compute_exposure(assumed, [match_tariff(assumed, shipment(), PORTS, CFG, TODAY)], company(), CFG, TODAY)
-    assert exp2.components["tariff"] == pytest.approx(18200) and "assumed" in exp2.assumptions[0]
+    unknown = tariff_signal(rate_percent=None)
+    exp2 = compute_exposure(unknown, [match_tariff(unknown, shipment(), PORTS, CFG, TODAY)], company(), CFG, TODAY)
+    assert exp2.loss_if_happens_usd == 0 and exp2.components == {} and exp2.value_at_risk_usd == 182000.0
+    assert "cannot be priced" in exp2.unpriced_reason and "no rate was guessed" in exp2.assumptions[0]
     fx = Signal("fx1", "fx1", "fx", "ecb", "observed_data", "other", "x", "ongoing", TODAY, countries=["Germany"], fx_currency="EUR", fx_move_pct=3.0)
     exp3 = compute_exposure(fx, [match_fx(fx, shipment(), PORTS, CFG, TODAY)], company(), CFG, TODAY)
     assert exp3.components["fx"] == pytest.approx(202200 * 0.03)
@@ -401,3 +402,26 @@ def test_persist_writes_alert_and_suppresses_repeat_notifications(alerts_db):
     final = run_query("SELECT * FROM alerts")[0]
     assert final["notified_count"] == 2 and len(run_query("SELECT 1 FROM alerts")) == 1
     assert final["last_notified_loss"] == pytest.approx(worse.decision.expected_loss_usd)
+
+
+# -- facts only: a duty notice without a stated rate can never be a loud alert ---------------------------------------------------
+
+def test_unknown_duty_rate_is_watch_only_however_big_the_shipment():
+    huge = shipment(value=5_000_000.0)
+    sig = tariff_signal(rate_percent=None)
+    (row,) = evaluate([sig], [huge], company(), PORTS, CFG, TODAY, 2000.0, "biz")
+    assert row.level == "watch" and row.decision.expected_loss_usd == 0 and row.exposure.value_at_risk_usd == 5_000_000.0
+    assert any("cannot price this" in x for x in row.explanation) and any("can never Notify" in x for x in row.explanation)
+    assert "does not state one" in row.action and row.alert_type == "heads_up" and row.act_by == TODAY + timedelta(days=4)
+    stated = evaluate([tariff_signal(rate_percent=25.0)], [huge], company(), PORTS, CFG, TODAY, 2000.0, "biz")[0]
+    assert stated.level == "notify" and stated.exposure.loss_if_happens_usd == pytest.approx(1_250_000.0)   # a stated rate still notifies
+
+
+def test_unknown_rate_alert_is_saved_with_value_at_risk(alerts_db):
+    from src.ingestion.db import run_query
+
+    rows = evaluate([tariff_signal(rate_percent=None)], [shipment()], company(), PORTS, CFG, TODAY, 2000.0, "biz")
+    persist(rows, CFG, now=datetime(2026, 11, 10, 9, 0, tzinfo=timezone.utc))
+    row = run_query("SELECT * FROM alerts")[0]
+    assert row["level"] == "watch" and row["exposure_usd"] == 0 and row["loss_components"] == {"value_at_risk_usd": 182000.0}
+    assert row["notified_count"] == 0 and any("never Notify" in x or "can never Notify" in x for x in row["explanation"])

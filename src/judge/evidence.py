@@ -81,7 +81,7 @@ def _facts(row: AlertRow, company: CompanyData, today: date) -> dict:
         "assumptions": exp.assumptions,
     }
     if sig.kind == "tariff":
-        facts["tariff"] = {"rate_percent": sig.rate_percent, "rate_was_assumed": sig.rate_assumed}
+        facts["tariff"] = {"rate_percent": sig.rate_percent, "rate_stated": sig.rate_percent is not None}
     if sig.kind == "fx":
         facts["exchange_rate"] = {"currency": sig.fx_currency, "move_percent": sig.fx_move_pct}
     alts = [company.alternatives[c] for c in exp.categories if c in company.alternatives]

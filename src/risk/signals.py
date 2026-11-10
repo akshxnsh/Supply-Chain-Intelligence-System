@@ -36,8 +36,7 @@ class Signal:
     start: date | None = None
     end: date | None = None
     expected_delay_days: float = 0.0
-    rate_percent: float | None = None    # tariff signals
-    rate_assumed: bool = False
+    rate_percent: float | None = None    # tariff signals: only a rate the notice STATES (None = unknown, never guessed)
     fx_currency: str | None = None
     fx_move_pct: float | None = None
     independent_sources: int = 1
@@ -100,8 +99,7 @@ def signals_from_events(rows: list[dict], cfg: dict, today: date) -> list[Signal
         )
         if tariff:
             rate = r.get("rate_percent")
-            sig.rate_percent = float(rate) if rate is not None else cfg["loss_model"]["assumed_tariff_increase_pct"]
-            sig.rate_assumed = rate is None
+            sig.rate_percent = float(rate) if rate is not None else None
         out.append(sig)
     return out
 

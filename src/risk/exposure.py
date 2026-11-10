@@ -48,6 +48,8 @@ class Exposure:
     categories: list[str]
     stock: list[StockInfo] = field(default_factory=list)
     assumptions: list[str] = field(default_factory=list)
+    unpriced_reason: str | None = None   # set when the loss cannot be priced (e.g. a duty notice with no stated rate)
+    value_at_risk_usd: float = 0.0       # value of the matched shipments (shown when the loss is unpriced)
 
     @property
     def stockout_risk(self) -> bool:
@@ -118,6 +120,7 @@ def compute_exposure(sig: Signal, matches: list[Match], company: CompanyData, cf
     lm = cfg["loss_model"]
     comps: dict[str, float] = {}
     assumptions: list[str] = []
+    unpriced: str | None = None
     cats = sorted({m.shipment.get("product_category") for m in matches if m.shipment.get("product_category")})
     stock: list[StockInfo] = []
 
@@ -138,9 +141,11 @@ def compute_exposure(sig: Signal, matches: list[Match], company: CompanyData, cf
         comps["late_orders"] = late_total
         assumptions.append(f"expected delay {delay:g} day(s) (config default for {sig.event_type}; the sources do not give a delay length)")
     elif sig.kind == TARIFF:
-        comps["tariff"] = sum(float(m.shipment.get("shipment_value_usd") or 0) * (sig.rate_percent or 0) / 100.0 for m in matches)
-        if sig.rate_assumed:
-            assumptions.append(f"tariff rate not stated in the notice: assumed {sig.rate_percent:g}% (config)")
+        if sig.rate_percent is None:
+            unpriced = "the notice does not state a duty rate, so the loss cannot be priced"
+            assumptions.append("duty rate not stated in the notice: no rate was guessed; check the rate manually")
+        else:
+            comps["tariff"] = sum(float(m.shipment.get("shipment_value_usd") or 0) * sig.rate_percent / 100.0 for m in matches)
     elif sig.kind == FX:
         cat_set = {m.shipment.get("product_category") for m in matches}
         pending = sum(float(o.get("order_value_usd") or 0) for o in company.orders if o.get("product_category") in cat_set)
@@ -148,6 +153,7 @@ def compute_exposure(sig: Signal, matches: list[Match], company: CompanyData, cf
         assumptions.append("exchange-rate loss = move % x value of pending orders in the affected categories")
 
     total = round(sum(comps.values()), 2)
+    value_at_risk = round(sum(float(m.shipment.get("shipment_value_usd") or 0) for m in matches), 2)
     return Exposure(sig, matches, total, {k: round(v, 2) for k, v in comps.items()},
                     sorted({str(m.shipment.get("shipment_id") or m.shipment.get("id")) for m in matches}),
-                    _suppliers(matches), cats, stock, assumptions)
+                    _suppliers(matches), cats, stock, assumptions, unpriced, value_at_risk if unpriced else 0.0)

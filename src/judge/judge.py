@@ -58,6 +58,8 @@ def fallback_decision(row: AlertRow, bundle: EvidenceBundle) -> JudgeDecision:
     expected, possible = row.decision.expected_loss_usd, row.exposure.loss_if_happens_usd
     claim = (f"Possible loss ${possible:,.0f}, expected loss ${expected:,.0f} at {row.confidence.band} confidence "
              f"(rule-based; see the computed facts).")
+    if row.exposure.unpriced_reason:
+        claim = f"The loss cannot be priced: {row.exposure.unpriced_reason}."
     return JudgeDecision(action_type=action_type, recommended_action=row.action[:400], act_by=act_by,
                          reasoning="Rule-based recommendation: no verified model answer was available.",
                          claims=[Claim(statement=claim[:300], evidence_ids=[FACTS_ID])])
