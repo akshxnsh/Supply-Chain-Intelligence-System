@@ -451,3 +451,29 @@ def test_events_carry_the_imposing_country_into_the_signal():
     (rows_us,) = [evaluate([sig], [shipment(country="China", supplier="sup-3")], company(), PORTS, CFG, TODAY, 2000.0, "biz", "United States")]
     assert rows_us == []                                          # China's duty on US goods: no alert for a US importer
     assert len(evaluate([sig], [shipment(country="China", supplier="sup-3")], company(), PORTS, CFG, TODAY, 2000.0, "biz", "China")) == 1
+
+
+def test_country_only_match_is_not_used_for_events_that_name_no_place():
+    paperwork = delay_signal(event_type="other", locations=[], countries=["United States"], start=TODAY, end=TODAY + timedelta(days=3))
+    assert match_delay(paperwork, shipment(), PORTS, CFG, TODAY) is None
+    strike = delay_signal(event_type="port_strike", locations=[], countries=["United States"], start=TODAY, end=TODAY + timedelta(days=3))
+    assert match_delay(strike, shipment(), PORTS, CFG, TODAY).precision == "country"          # real shipping events still match by country
+
+
+def test_stale_open_alerts_are_closed_but_acknowledged_ones_are_kept(alerts_db):
+    from src.ingestion.db import run_query
+    from src.risk.pipeline import resolve_stale
+
+    sigs = [delay_signal(signal_id=f"s{i}", dedupe_key=f"s{i}", event_type="port_closure", expected_delay_days=10.0, end=TODAY + timedelta(days=9),
+                         independent_sources=4) for i in range(3)]
+    rows = evaluate(sigs, [shipment()], company(), PORTS, CFG, TODAY, 2000.0, "biz")
+    persist(rows, CFG, now=datetime(2026, 11, 10, 9, 0, tzinfo=timezone.utc))
+    ids = [r.alert_id for r in rows]
+    from src.ingestion.db import execute
+    execute("UPDATE alerts SET status = 'acknowledged' WHERE alert_id = %(i)s", {"i": ids[2]})
+    assert resolve_stale("biz", ids[:1]) == 1                          # only ids[1] is open and missing from the new run
+    status = {r["alert_id"]: r["status"] for r in run_query("SELECT alert_id, status FROM alerts")}
+    assert status == {ids[0]: "open", ids[1]: "resolved", ids[2]: "acknowledged"}
+    assert "no longer produces" in run_query("SELECT explanation FROM alerts WHERE alert_id = %(i)s", {"i": ids[1]})[0]["explanation"][-1]
+    persist(rows, CFG, now=datetime(2026, 11, 10, 10, 0, tzinfo=timezone.utc))      # it comes back -> reopened
+    assert run_query("SELECT status FROM alerts WHERE alert_id = %(i)s", {"i": ids[1]})[0]["status"] == "open"

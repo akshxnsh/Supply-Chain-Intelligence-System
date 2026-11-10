@@ -158,7 +158,8 @@ VALUES (%(alert_id)s, %(business_id)s, %(alert_type)s, %(level)s, %(signal_kind)
     %(event_start)s, %(event_end)s, %(act_by)s, %(action)s, %(evidence)s, %(explanation)s, %(assumptions)s,
     %(notified_at)s, %(notified_level)s, %(notified_loss)s, %(notified_band)s, %(notified_count)s)
 ON CONFLICT (alert_id) DO UPDATE SET
-    alert_type = EXCLUDED.alert_type, level = EXCLUDED.level, title = EXCLUDED.title,
+    alert_type = EXCLUDED.alert_type, level = EXCLUDED.level, title = EXCLUDED.title, signal_kind = EXCLUDED.signal_kind,
+    source = EXCLUDED.source, event_type = EXCLUDED.event_type, status = CASE WHEN alerts.status = 'resolved' THEN 'open' ELSE alerts.status END,
     affected_shipments = EXCLUDED.affected_shipments, affected_suppliers = EXCLUDED.affected_suppliers,
     exposure_usd = EXCLUDED.exposure_usd, expected_loss_usd = EXCLUDED.expected_loss_usd,
     loss_components = EXCLUDED.loss_components, confidence_band = EXCLUDED.confidence_band,
@@ -202,6 +203,20 @@ def persist(rows: list[AlertRow], cfg: dict, now: datetime | None = None) -> Non
             })
 
 
+RESOLVE_STALE = """
+UPDATE alerts SET status = 'resolved', updated_at = now(),
+       explanation = explanation || '["closed: the latest run no longer produces this alert"]'::jsonb
+WHERE business_id = %(b)s AND status = 'open' AND NOT (alert_id = ANY(%(ids)s))
+"""
+
+
+def resolve_stale(business_id: str, current_ids: list[str]) -> int:
+    """Open alerts that this run did NOT produce again (the event ended, the match or the rules changed) are closed.
+    Acknowledged alerts are left alone."""
+    with get_pool().connection() as conn:
+        return conn.execute(RESOLVE_STALE, {"b": business_id, "ids": list(current_ids)}).rowcount
+
+
 # -- entry point ------------------------------------------------------------------------------------------------
 
 def run_risk(business_id: str = "demo-business-001", today: date | None = None, persist_alerts: bool = True) -> dict:
@@ -212,13 +227,15 @@ def run_risk(business_id: str = "demo-business-001", today: date | None = None, 
     signals = load_signals(cfg, today, ports)
     threshold = trader_threshold(business_id, cfg)
     rows = evaluate(signals, shipments, company, ports, cfg, today, threshold, business_id, importing_country(business_id))
+    resolved = 0
     if persist_alerts:
         persist(rows, cfg)
+        resolved = resolve_stale(business_id, [r.alert_id for r in rows])
     return {
         "business_id": business_id, "today": today.isoformat(), "threshold_usd": threshold, "shipments": len(shipments),
         "signals_by_source": dict(Counter(s.source for s in signals)), "alerts": len(rows),
         "alerts_by_level": dict(Counter(r.level for r in rows)), "alerts_by_type": dict(Counter(r.alert_type for r in rows)),
-        "notifications_this_run": sum(1 for r in rows if r.notify_now), "rows": rows, "company": company, "today_date": today,
+        "notifications_this_run": sum(1 for r in rows if r.notify_now), "resolved_stale_alerts": resolved, "rows": rows, "company": company, "today_date": today,
     }
 
 

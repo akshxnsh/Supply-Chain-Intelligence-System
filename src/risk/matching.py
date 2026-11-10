@@ -27,6 +27,9 @@ class Match:
     why: str = ""
 
 
+COUNTRY_LEVEL_EXCLUDED = {"other", "unknown"}
+
+
 def place_matches(a: str, b: str) -> bool:
     na, nb = norm_place(a), norm_place(b)
     return bool(na and nb and (na == nb or (len(na) >= 4 and len(nb) >= 4 and (na in nb or nb in na))))
@@ -92,8 +95,10 @@ def match_delay(sig: Signal, shipment: dict, ports: PortIndex, cfg: dict, today:
             return Match(sig, shipment, precision, w["checkpoint"], (_date(w["start"]), _date(w["end"])),
                          f"{w['checkpoint']} ({how}), ship there {_date(w['start'])}..{_date(w['end'])}")
 
-    # 2) only a country is known: the supplier's / route's countries vs the signal's countries, any time on the journey
-    if sig.countries:
+    # 2) only a country is known: the supplier's / route's countries vs the signal's countries, any time on the journey.
+    #    Only for events that really act on a whole country's shipping (strikes, closures, storms, disasters ...): an
+    #    'other' / 'unknown' event that names no place (e.g. a paperwork rule 'in the United States') is not tied to a shipment.
+    if sig.countries and sig.event_type not in COUNTRY_LEVEL_EXCLUDED:
         mine = _shipment_countries(shipment, ports)
         if any(same_country(c, m) for c in sig.countries for m in mine):
             j_start, j_end = _date(windows[0]["start"] - slack), _date(windows[-1]["end"] + slack)
