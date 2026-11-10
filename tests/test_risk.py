@@ -371,6 +371,7 @@ def alerts_db(pg_url):
     from src.ingestion.db import execute
 
     execute("TRUNCATE TABLE alerts")
+    execute("TRUNCATE TABLE alert_notifications")
     return pg_url
 
 
@@ -402,6 +403,11 @@ def test_persist_writes_alert_and_suppresses_repeat_notifications(alerts_db):
     final = run_query("SELECT * FROM alerts")[0]
     assert final["notified_count"] == 2 and len(run_query("SELECT 1 FROM alerts")) == 1
     assert final["last_notified_loss"] == pytest.approx(worse.decision.expected_loss_usd)
+
+    log = run_query("SELECT * FROM alert_notifications ORDER BY id")       # the history keeps BOTH notifications, not the suppressed repeat
+    assert [n["reason"] for n in log][0] == "first notification" and len(log) == 2 and "rose" in log[1]["reason"]
+    assert log[1]["expected_loss_usd"] == pytest.approx(worse.decision.expected_loss_usd) and log[0]["expected_loss_usd"] < log[1]["expected_loss_usd"]
+    assert log[0]["title"] and log[0]["business_id"] == "biz" and log[0]["level"] == "notify"
 
 
 # -- facts only: a duty notice without a stated rate can never be a loud alert ---------------------------------------------------

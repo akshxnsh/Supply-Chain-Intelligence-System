@@ -10,6 +10,7 @@ import AskScreen from "./screens/AskScreen"
 import RiskAlertsScreen from "./screens/RiskAlertsScreen"
 import ShipmentsScreen from "./screens/ShipmentsScreen"
 import QualityScreen from "./screens/QualityScreen"
+import NotificationsScreen from "./screens/NotificationsScreen"
 import SettingsScreen from "./screens/SettingsScreen"
 
 import { API } from "./config";
@@ -34,6 +35,7 @@ const SCREEN_TITLES = {
   ask:       "Ask ChainGuard",
   riskalerts: "Risk Alerts",
   shipments: "Shipments & Stock",
+  notifications: "Notification History",
   quality:   "AI Quality",
   settings:  "How Alerts Work",
 }
@@ -235,6 +237,7 @@ export default function App() {
           {screen === "alerts"    && <AlertsScreen businessId={businessId} />}
           {screen === "riskalerts" && <RiskAlertsScreen key={businessId} businessId={businessId} />}
           {screen === "shipments"  && <ShipmentsScreen key={businessId} businessId={businessId} />}
+          {screen === "notifications" && <NotificationsScreen key={businessId} businessId={businessId} onNavigate={setScreen} />}
           {screen === "quality"    && <QualityScreen />}
           {screen === "settings"   && <SettingsScreen key={businessId} businessId={businessId} />}
           {screen === "ask"       && <AskScreen businessId={businessId} />}

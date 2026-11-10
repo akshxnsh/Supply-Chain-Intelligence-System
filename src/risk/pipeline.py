@@ -175,6 +175,14 @@ ON CONFLICT (alert_id) DO UPDATE SET
 """
 
 
+LOG_NOTIFICATION = """
+INSERT INTO alert_notifications (alert_id, business_id, notified_at, level, reason, title, source, expected_loss_usd, confidence_band,
+                                 stockout_risk, act_by, action)
+VALUES (%(alert_id)s, %(business_id)s, %(at)s, %(level)s, %(reason)s, %(title)s, %(source)s, %(loss)s, %(band)s, %(stockout)s,
+        %(act_by)s, %(action)s)
+"""
+
+
 def persist(rows: list[AlertRow], cfg: dict, now: datetime | None = None) -> None:
     """Write alerts; decide per alert whether this run counts as a (new) notification (no repeats unless worse)."""
     now = now or datetime.now(timezone.utc)
@@ -201,6 +209,11 @@ def persist(rows: list[AlertRow], cfg: dict, now: datetime | None = None) -> Non
                 "notified_loss": r.decision.expected_loss_usd if r.notify_now else None,
                 "notified_band": r.confidence.band if r.notify_now else None, "notified_count": 1 if r.notify_now else 0,
             })
+            if r.notify_now:                                   # keep every notification decision, not just the latest per alert
+                conn.execute(LOG_NOTIFICATION, {
+                    "alert_id": r.alert_id, "business_id": r.business_id, "at": now, "level": "notify", "reason": r.notify_reason,
+                    "title": sig.title[:500], "source": sig.source, "loss": r.decision.expected_loss_usd, "band": r.confidence.band,
+                    "stockout": e.stockout_risk, "act_by": r.act_by, "action": r.action})
 
 
 RESOLVE_STALE = """

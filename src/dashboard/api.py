@@ -12,7 +12,7 @@ sys.path.insert(0, os.path.dirname(os.path.dirname(
 from src.agent.runtime import run_agent_cycle_async, _persist_alert_if_new
 from src.agent.tools import generate_purchase_order
 from src.agent.business_registry import list_businesses, get_business
-from src.ingestion.queries import (acknowledge_risk_alert, query_alerts_page, query_all_alerts, query_risk_alert,
+from src.ingestion.queries import (acknowledge_risk_alert, query_alerts_page, query_all_alerts, query_risk_alert, query_notifications,
                                    query_risk_alerts, query_suppliers_overview)
 from src.dashboard.cache import cached, get_cache, invalidate
 import asyncio as _asyncio
@@ -321,6 +321,17 @@ def get_risk_alerts(
         return {"alerts": rows, "count": len(rows), "limit": limit, "offset": offset}
     except Exception as e:
         return {"alerts": [], "error": str(e)}
+
+
+@app.get("/api/notifications")
+@cached("risk", ttl=30)
+def get_notifications(business_id: str = Query(default=DEFAULT_BIZ), limit: int = Query(default=50, ge=1, le=200), offset: int = Query(default=0, ge=0)):
+    """History of notification decisions (newest first). Nothing is delivered anywhere yet; this is the log of when ChainGuard decided to notify."""
+    try:
+        rows = query_notifications(business_id, limit, offset)
+        return {"notifications": rows, "count": len(rows), "limit": limit, "offset": offset, "delivery": "not_configured"}
+    except Exception as e:
+        return {"notifications": [], "error": str(e)}
 
 
 @app.get("/api/risk/alerts/{alert_id}")

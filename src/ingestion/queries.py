@@ -434,6 +434,13 @@ def query_risk_alerts(business_id: str, level: Optional[str], status: Optional[s
                                        "limit": limit, "offset": offset})
 
 
+def query_notifications(business_id: str, limit: int, offset: int) -> list[dict]:
+    """Every notification decision for the business, newest first."""
+    return run_query("SELECT n.*, a.status AS alert_status FROM alert_notifications n LEFT JOIN alerts a USING (alert_id) "
+                     "WHERE n.business_id = %(b)s ORDER BY n.notified_at DESC, n.id DESC LIMIT %(limit)s OFFSET %(offset)s",
+                     {"b": business_id, "limit": limit, "offset": offset})
+
+
 def query_risk_alert(alert_id: str) -> Optional[dict]:
     rows = run_query("SELECT * FROM alerts WHERE alert_id = %(id)s", {"id": alert_id})
     return rows[0] if rows else None

@@ -2,6 +2,7 @@
 const NAV = [
   { id: "dashboard",  label: "Dashboard",      Icon: IconGrid },
   { id: "riskalerts", label: "Risk Alerts",    Icon: IconShield },
+  { id: "notifications", label: "Notifications", Icon: IconBell },
   { id: "shipments",  label: "Shipments & Stock", Icon: IconTruck },
   { id: "ask",        label: "Ask ChainGuard", Icon: IconChat },
   { id: "freshness",  label: "Freshness",      Icon: IconClock },
