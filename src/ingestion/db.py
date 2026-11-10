@@ -79,6 +79,24 @@ def run_query(sql: str, params: dict | Sequence | None = None) -> list[dict]:
             return list(cur.fetchall()) if cur.description else []
 
 
+def run_query_readonly(sql: str, params: dict | Sequence | None = None) -> list[dict]:
+    """Like run_query, but inside a READ ONLY transaction: the database itself refuses any write, whatever the SQL says.
+    Used by the chat agent's tools, so 'it cannot change anything' does not rest on the SQL being well written."""
+    with get_pool().connection() as conn:
+        conn.set_read_only(True)
+        try:
+            with conn.cursor() as cur:
+                cur.execute(sql, params)
+                rows = list(cur.fetchall()) if cur.description else []
+            conn.commit()
+            return rows
+        except Exception:
+            conn.rollback()
+            raise
+        finally:
+            conn.set_read_only(None)
+
+
 def execute(sql: str, params: dict | Sequence | None = None) -> int:
     """Run a statement that returns no rows. Returns the affected row count."""
     with get_pool().connection() as conn:

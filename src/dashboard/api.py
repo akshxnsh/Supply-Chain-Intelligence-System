@@ -1,7 +1,10 @@
 from fastapi import FastAPI, HTTPException, Query
 from fastapi.responses import StreamingResponse
 from fastapi.middleware.cors import CORSMiddleware
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
+from collections import deque as _deque
+from dataclasses import asdict
+import time as _time
 import sys, os, json, threading
 sys.path.insert(0, os.path.dirname(os.path.dirname(
     os.path.dirname(os.path.abspath(__file__)))))
@@ -376,6 +379,38 @@ def pipeline_status(limit: int = Query(default=5, ge=1, le=50)):
         return {"running": pipeline.is_running(), "recent_runs": pipeline.recent_runs(limit)}
     except Exception as e:
         return {"running": False, "recent_runs": [], "error": str(e)}
+
+
+# ── Ask ChainGuard: a read-only question-answering agent ─────────────────────────────────────────────────────
+
+class AskRequest(BaseModel):
+    question: str = Field(min_length=3, max_length=500)
+    business_id: str = DEFAULT_BIZ
+    session_id: str | None = Field(default=None, max_length=80)   # send it back to continue the same conversation
+
+
+_ASK_LIMIT_PER_MINUTE = 10          # protects the model's free-tier request limit
+_ask_times: _deque = _deque()
+
+
+@app.post("/api/ask")
+async def ask_chainguard(req: AskRequest):
+    """Answer a plain-English question from the business's alerts, shipments, stock and data freshness.
+    Read-only, capped at a few lookups per question, and every number in the answer is checked against what the lookups returned."""
+    from src.chat.agent import ask
+
+    try:
+        get_business(req.business_id)
+    except KeyError as e:
+        raise HTTPException(status_code=404, detail=str(e))
+    now = _time.monotonic()
+    while _ask_times and now - _ask_times[0] > 60:
+        _ask_times.popleft()
+    if len(_ask_times) >= _ASK_LIMIT_PER_MINUTE:
+        raise HTTPException(status_code=429, detail="Too many questions this minute. Please wait a little.")
+    _ask_times.append(now)
+    result = await ask(req.question, req.business_id, req.session_id)
+    return asdict(result)
 
 
 # ── Latest analysis (business data endpoint — not the developer trace) ─────────
