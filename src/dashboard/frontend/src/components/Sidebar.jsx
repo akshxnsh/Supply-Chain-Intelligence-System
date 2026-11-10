@@ -3,6 +3,7 @@ const NAV = [
   { id: "risks",     label: "Active Risks",  Icon: IconAlertTriangle },
   { id: "freshness", label: "Freshness",     Icon: IconClock },
   { id: "alerts",    label: "Alerts",        Icon: IconBell },
+  { id: "riskalerts", label: "Risk Alerts", Icon: IconShield },
   { id: "ask",       label: "Ask ChainGuard", Icon: IconChat },
   { id: "console",   label: "Agent Console", Icon: IconActivity },
 ]
@@ -43,6 +44,15 @@ function IconChat({ size = 17, color = "currentColor" }) {
     <svg width={size} height={size} viewBox="0 0 24 24" fill="none"
       stroke={color} strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
       <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z" />
+    </svg>
+  )
+}
+
+function IconShield({ size = 17, color = "currentColor" }) {
+  return (
+    <svg width={size} height={size} viewBox="0 0 24 24" fill="none"
+      stroke={color} strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+      <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z" />
     </svg>
   )
 }
