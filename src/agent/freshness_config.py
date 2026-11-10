@@ -1,8 +1,11 @@
 """Configuration for data freshness checks: which Fivetran-loaded table belongs to which connection.
 
 Freshness = newest `_fivetran_synced` in the table (Fivetran stamps every row it writes). One representative
-table per connection, chosen because every sync re-writes at least one of its rows (GDELT: new articles,
-GDACS/Federal Register/ECB: the overlap window is re-upserted, Open-Meteo: forecast replaced each run).
+table per connection, chosen because every sync re-writes at least one of its rows (GDACS/Federal Register/ECB:
+the overlap window is re-upserted, Open-Meteo: forecast replaced each run).
+GDELT is the exception: a sync that finds no new matching articles writes no rows, so row time would call a healthy
+connection stale. For GDELT freshness is Fivetran's own last SUCCESSFUL sync time (`use_fivetran_sync_time`), which
+means "the connection is working"; if Fivetran cannot be reached the check falls back to the row time.
 PortWatch's disruptions layer is stale at the source, so its catalogue table (refreshed monthly) is used.
 Company sample data (suppliers, orders, inventory) has no connector and is not tracked here.
 """
@@ -22,11 +25,13 @@ class FreshnessTableConfig:
     connector_id: str      # Fivetran connection id
     max_age_minutes: int   # older than this = stale
     column: str = FIVETRAN_SYNCED_COLUMN
+    use_fivetran_sync_time: bool = False   # measure from Fivetran's last successful sync, not the newest row
 
 
 # max_age = about 3x the sync interval (see FREQUENCY_MINUTES in scripts/fivetran_api.py)
 FRESHNESS_TABLES: dict[str, FreshnessTableConfig] = {
-    "gdelt_articles": FreshnessTableConfig("gdelt_articles", "fivetran_raw_gdelt", "articles", "diplomat_umpire", 90),
+    "gdelt_articles": FreshnessTableConfig("gdelt_articles", "fivetran_raw_gdelt", "articles", "diplomat_umpire", 90,
+                                           use_fivetran_sync_time=True),
     "gdacs_events": FreshnessTableConfig("gdacs_events", "fivetran_raw_gdacs", "events", "visiting_reminiscent", 9 * 60),
     "portwatch_ports": FreshnessTableConfig("portwatch_ports", "fivetran_raw_portwatch", "ports", "tonsils_assistance", 35 * 24 * 60),
     "federal_register_documents": FreshnessTableConfig(

@@ -142,7 +142,8 @@ def make_tools(business_id: str) -> list[Callable]:
 
             rows = [_table_freshness(t) for t in configured_table_names()]
             return {"count": len(rows), "sources": [{"source": r["table_name"], "minutes_since_sync": r["age_minutes"],
-                                                    "max_minutes": r["max_age_minutes"], "stale": r["is_stale"]} for r in rows]}
+                                                    "max_minutes": r["max_age_minutes"], "stale": r["is_stale"],
+                                                    "measured_from": r.get("measured_from")} for r in rows]}
         return _safe(go)
 
     return [list_open_alerts, get_alert_details, list_shipments, get_stock_and_orders, data_freshness]

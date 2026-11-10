@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import asyncio
 import json
+import os
 from datetime import datetime, timezone
 from typing import Any
 
@@ -49,9 +50,30 @@ def _normalize_tables(table_names: list[str] | None = None) -> list[str]:
     return table_names
 
 
+def fivetran_last_success(connector_id: str) -> datetime | None:
+    """When Fivetran last completed a sync of this connection (REST API, FIVETRAN_API_KEY from .env); None if unknown."""
+    import requests
+    from dotenv import dotenv_values
+
+    key = os.getenv("FIVETRAN_API_KEY") or dotenv_values().get("FIVETRAN_API_KEY")
+    if not key:
+        return None
+    try:
+        r = requests.get(f"https://api.fivetran.com/v1/connections/{connector_id}", timeout=10,
+                         headers={"Authorization": f"Basic {key}", "Accept": "application/json"})
+        r.raise_for_status()
+        ok = r.json()["data"].get("succeeded_at")
+        return datetime.fromisoformat(ok.replace("Z", "+00:00")) if ok else None
+    except Exception:  # noqa: BLE001 - never let a status lookup break the freshness check
+        return None
+
+
 def _table_freshness(table_name: str) -> dict[str, Any]:
     config = get_table_config(table_name)  # also validates the table name
-    modified_at = query_table_last_updated(config.table, schema=config.schema, column=config.column)
+    modified_at = fivetran_last_success(config.connector_id) if config.use_fivetran_sync_time else None
+    measured_from = "fivetran_last_successful_sync" if modified_at else "newest_row"
+    if modified_at is None:
+        modified_at = query_table_last_updated(config.table, schema=config.schema, column=config.column)
     if modified_at is None:
         age_minutes = float("inf")
         last_modified = None
@@ -64,6 +86,7 @@ def _table_freshness(table_name: str) -> dict[str, Any]:
         "table_name": table_name,
         "connector_id": config.connector_id,
         "last_modified": last_modified,
+        "measured_from": measured_from,
         "age_minutes": round(age_minutes, 2) if age_minutes != float("inf") else None,
         "max_age_minutes": config.max_age_minutes,
         "is_stale": age_minutes > config.max_age_minutes,
