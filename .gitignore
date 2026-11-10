@@ -7,3 +7,6 @@ google-credentials.json
 *.json
 
 !.env.example
+.venv*/
+connectors/*/files/
+connectors/*/configuration.local.json

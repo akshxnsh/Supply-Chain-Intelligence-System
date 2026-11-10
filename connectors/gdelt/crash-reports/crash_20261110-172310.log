@@ -1,0 +1,93 @@
+================================================================
+Crash Report
+================================================================
+
+Crash metadata:
+  Timestamp: 2026-11-10T11:53:10Z
+  Handler: update()
+  Project path: C:\Coding Shuttle\Supply-Chain-Intelligence-System\connectors\gdelt
+  Fivetran Connector SDK version: 3.1.0
+  Python version: 3.12.2
+  Platform: Windows 11 (AMD64)
+
+Connector inputs:
+  State: {}
+
+Resource snapshot:
+  Current memory usage: 9.57 MB
+  Peak memory usage: 9.57 MB
+  Average memory usage: 5.50 MB
+  Debug memory limit: 4096.00 MB
+
+Error:
+chainguard_fetchers.http.FetchError: api.gdeltproject.org failed after 4 attempts: HTTP 429 from api.gdeltproject.org
+
+Customer stack trace (most recent call last):
+
+File "C:\Coding Shuttle\Supply-Chain-Intelligence-System\connectors\gdelt\connector.py", line 43, in update
+      41 |     hours = hours_to_fetch(state, now)
+      42 |     log.info(f"GDELT: fetching the last {hours} h")
+  --> 43 |     rows = gdelt.fetch_all(timespan=f"{hours}h")
+      44 |     for row in rows:
+      45 |         # upsert: insert the article, or update it if article_id already exists
+
+  Locals:
+    configuration = keys['note']
+    state = {}
+    now = datetime.datetime(2026, 11, 10, 11, 50, 21, 782640, tzinfo=datetime.timezone.utc)
+    hours = 24
+
+File "C:\Coding Shuttle\Supply-Chain-Intelligence-System\connectors\gdelt\chainguard_fetchers\gdelt.py", line 86, in fetch_all
+      84 |     seen: dict[str, dict] = {}
+      85 |     for name, q in (queries or DEFAULT_QUERIES).items():
+  --> 86 |         for row in fetch_articles(q, query_name=name, timespan=timespan, **http_kwargs):
+      87 |             seen.setdefault(row["article_id"], row)
+      88 |     return list(seen.values())
+
+  Locals:
+    timespan = '24h'
+    queries = None
+    http_kwargs = {}
+    seen = {'737c982ba1299556': {'article_id': '737c982ba1299556', 'url': 'https://www.dailypolitical.com/2026/11/09/gxo-logistics-q3-earnings-call-highlights.html', 'title': 'GXO Logistics Q3 Earnings Call Highlights', 'domain': 'dailypolitical.com', 'language': 'English', ...}, '40d7dc3383d2f246': {'article_id': '40d7dc3383d2f246', 'url': 'https://maritime-executive.com/article/bulgaria-reports-discovery-of-human-remains-on-ship-hit-by-drone', 'title': 'Bulgaria Reports Discovery of Human Remains on Ship Hit by Drone', 'domain': 'maritime-executive.com', 'language': 'English', ...}}
+    name = 'trade'
+    q = '(tariff OR "export ban" OR "import ban" OR "trade sanctions" OR "customs strike") (trade OR shipping OR imports)'
+    row = {'article_id': '40d7dc3383d2f246', 'url': 'https://maritime-executive.com/article/bulgaria-reports-discovery-of-human-remains-on-ship-hit-by-drone', 'title': 'Bulgaria Reports Discovery of Human Remains on Ship Hit by Drone', 'domain': 'maritime-executive.com', 'language': 'English', ...}
+
+File "C:\Coding Shuttle\Supply-Chain-Intelligence-System\connectors\gdelt\chainguard_fetchers\gdelt.py", line 77, in fetch_articles
+      75 |                    maxrecords: int = 250, **http_kwargs) -> list[dict]:
+      76 |     http_kwargs.setdefault("timeout", TIMEOUT)
+  --> 77 |     payload = get_json(GDELT_URL, article_params(query, timespan, maxrecords),
+      78 |                        min_interval=MIN_INTERVAL_SECONDS, backoff=6.0, **http_kwargs)
+      79 |     return parse_articles(payload, query_name)
+
+  Locals:
+    query = '(tariff OR "export ban" OR "import ban" OR "trade sanctions" OR "customs strike") (trade OR shipping OR imports)'
+    query_name = 'trade'
+    timespan = '24h'
+    maxrecords = 250
+    http_kwargs = {'timeout': (30, 90)}
+
+File "C:\Coding Shuttle\Supply-Chain-Intelligence-System\connectors\gdelt\chainguard_fetchers\http.py", line 75, in get_json
+      73 |             sleep(backoff * (2 ** attempt))
+      74 | 
+  --> 75 |     raise FetchError(f"{host} failed after {retries + 1} attempts: {last_error}")
+
+  Locals:
+    url = 'https://api.gdeltproject.org/api/v2/doc/doc'
+    params = {'query': '(tariff OR "export ban" OR "import ban" OR "trade sanctions" OR "customs strike") (trade OR shipping OR imports) sourcelang:english', 'mode': 'artlist', 'format': 'json', 'maxrecords': 250, 'timespan': '24h', ...}
+    headers = None
+    timeout = (30, 90)
+    retries = 3
+    backoff = 6.0
+    min_interval = 5.5
+    session = None
+    sleep = <built-in function sleep>
+    sess = <module 'requests' from 'C:\\Coding Shuttle\\Supply-Chain-Intelligence-System\\.venv-fivetran\\Lib\\site-packages\\requests\\__init__.py'>
+    hdrs = {'User-Agent': 'chainguard-fetcher/1.0', 'Accept': 'application/json'}
+    host = 'api.gdeltproject.org'
+    last_error = FetchError('HTTP 429 from api.gdeltproject.org')
+    attempt = 3
+    wait = -30.54700000002049
+    resp = <Response [429]>
+    retry_after = None
+================================================================
