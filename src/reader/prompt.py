@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from src.reader.schema import ReadItem
 
-PROMPT_VERSION = "reader-v2"
+PROMPT_VERSION = "reader-v3"
 
 INSTRUCTIONS = """You extract structured facts from short news headlines and official trade notices for a supply-chain \
 early-warning tool. Read ONLY the text given for each item. Do not use outside knowledge, do not guess.
@@ -19,6 +19,7 @@ Resolve words like "tomorrow" or "next Monday" against the item's "published" da
 - "date_clarity": "explicit" if the text states the date, "implied" if you worked it out from words like "next week", else "unclear".
 - "location_clarity": "explicit" if a specific port/place is named, "implied" if only a region/country is clear, else "unclear".
 - "direction": "delay", "higher_cost", "both", "none" or "unknown".
+- "imposing_country": for a tariff, duty, quota, ban, sanction or trade rule, the country whose government imposes it \n(the country that charges the duty on imports, e.g. "United States" for US Commerce / CBP / ITC notices, "China" for a Chinese tariff \non US goods); null if it is not a trade rule or the text does not say.
 - "rate_percent": the duty / tariff rate in percent ONLY if the text states one (e.g. 25 for "25 percent"); otherwise null.
 - "locations" are places exactly as named in the text (port, strait, city); "countries" country names; "products" goods mentioned.
 - "summary": one plain sentence (max 200 characters) using only the text.
@@ -27,7 +28,7 @@ Answer with JSON only, in this exact shape, one object per item and the same ite
 {"items": [{"item_id": "...", "relevant": true, "event_type": "port_strike|port_closure|port_congestion|severe_weather|\
 natural_disaster|canal_or_strait_closure|tariff_or_trade_rule|sanctions|accident_or_incident|other_labor_action|other|unknown", \
 "status": "happened|ongoing|expected|unknown", "direction": "delay|higher_cost|both|none|unknown", "locations": [], "countries": [], \
-"products": [], "start_date": null, "end_date": null, "rate_percent": null, "date_clarity": "explicit|implied|unclear", \
+"products": [], "start_date": null, "end_date": null, "rate_percent": null, "imposing_country": null, "date_clarity": "explicit|implied|unclear", \
 "location_clarity": "explicit|implied|unclear", "summary": ""}]}
 """
 

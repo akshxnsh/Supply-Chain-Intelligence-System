@@ -41,6 +41,7 @@ class ReadEvent(BaseModel):
     start_date: Optional[date] = None
     end_date: Optional[date] = None
     rate_percent: Optional[float] = Field(default=None, ge=0, le=500, description="duty/tariff rate in percent if the text states one")
+    imposing_country: Optional[str] = Field(default=None, max_length=80, description="country whose government imposes the duty/rule")
     date_clarity: Clarity = "unclear"
     location_clarity: Clarity = "unclear"
     summary: str = Field(default="", max_length=400)
@@ -63,6 +64,12 @@ class ReadEvent(BaseModel):
     @classmethod
     def _clean_summary(cls, v):
         return (v or "").strip()[:400]
+
+    @field_validator("imposing_country", mode="before")
+    @classmethod
+    def _clean_country(cls, v):
+        v = (str(v).strip() if v is not None else "")
+        return None if v.lower() in ("", "unknown", "null", "none", "n/a") else v[:80]
 
     @field_validator("start_date", "end_date", "rate_percent", mode="before")
     @classmethod

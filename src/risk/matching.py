@@ -103,7 +103,11 @@ def match_delay(sig: Signal, shipment: dict, ports: PortIndex, cfg: dict, today:
     return None
 
 
-def match_tariff(sig: Signal, shipment: dict, ports: PortIndex, cfg: dict, today: date) -> Match | None:
+def match_tariff(sig: Signal, shipment: dict, ports: PortIndex, cfg: dict, today: date,
+                 importing_country: str | None = None) -> Match | None:
+    # a duty only costs this importer if the country it imports INTO imposes it (China's duty on US goods does not)
+    if importing_country and sig.imposing_country and not same_country(sig.imposing_country, importing_country):
+        return None
     mine = _shipment_countries(shipment, ports)
     if sig.countries and not any(same_country(c, m) for c in sig.countries for m in mine):
         return None
@@ -130,11 +134,13 @@ def match_fx(sig: Signal, shipment: dict, ports: PortIndex, cfg: dict, today: da
 _MATCHERS = {DELAY: match_delay, TARIFF: match_tariff, FX: match_fx}
 
 
-def match_all(signals: list[Signal], shipments: list[dict], ports: PortIndex, cfg: dict, today: date) -> dict[str, list[Match]]:
+def match_all(signals: list[Signal], shipments: list[dict], ports: PortIndex, cfg: dict, today: date,
+              importing_country: str | None = None) -> dict[str, list[Match]]:
     out: dict[str, list[Match]] = {}
     for sig in signals:
         fn = _MATCHERS[sig.kind]
-        hits = [m for s in shipments if (m := fn(sig, s, ports, cfg, today))]
+        extra = {"importing_country": importing_country} if sig.kind == TARIFF else {}
+        hits = [m for s in shipments if (m := fn(sig, s, ports, cfg, today, **extra))]
         if hits:
             out[sig.signal_id] = hits
     return out

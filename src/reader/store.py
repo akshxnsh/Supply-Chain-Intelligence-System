@@ -39,16 +39,16 @@ SQL_EXISTING_HASHES = "SELECT event_id, content_hash FROM events WHERE event_id 
 
 UPSERT_EVENT = """
     INSERT INTO events (event_id, source_type, source_ref, relevant, event_type, status, direction, locations, countries,
-                        products, start_date, end_date, rate_percent, date_clarity, location_clarity, summary, independent_sources,
+                        products, start_date, end_date, rate_percent, imposing_country, date_clarity, location_clarity, summary, independent_sources,
                         reference_date, content_hash, reader_model, prompt_version, read_from)
     VALUES (%(event_id)s, %(source_type)s, %(source_ref)s, %(relevant)s, %(event_type)s, %(status)s, %(direction)s,
-            %(locations)s, %(countries)s, %(products)s, %(start_date)s, %(end_date)s, %(rate_percent)s, %(date_clarity)s,
+            %(locations)s, %(countries)s, %(products)s, %(start_date)s, %(end_date)s, %(rate_percent)s, %(imposing_country)s, %(date_clarity)s,
             %(location_clarity)s, %(summary)s, %(independent_sources)s, %(reference_date)s, %(content_hash)s,
             %(reader_model)s, %(prompt_version)s, %(read_from)s)
     ON CONFLICT (event_id) DO UPDATE SET
         relevant = EXCLUDED.relevant, event_type = EXCLUDED.event_type, status = EXCLUDED.status,
         direction = EXCLUDED.direction, locations = EXCLUDED.locations, countries = EXCLUDED.countries,
-        products = EXCLUDED.products, start_date = EXCLUDED.start_date, end_date = EXCLUDED.end_date, rate_percent = EXCLUDED.rate_percent,
+        products = EXCLUDED.products, start_date = EXCLUDED.start_date, end_date = EXCLUDED.end_date, rate_percent = EXCLUDED.rate_percent, imposing_country = EXCLUDED.imposing_country,
         date_clarity = EXCLUDED.date_clarity, location_clarity = EXCLUDED.location_clarity, summary = EXCLUDED.summary,
         independent_sources = EXCLUDED.independent_sources, reference_date = EXCLUDED.reference_date,
         content_hash = EXCLUDED.content_hash, reader_model = EXCLUDED.reader_model,
@@ -136,7 +136,7 @@ def save_results(results: list[ReadResult], model: str) -> int:
                 "event_id": r.item.item_id, "source_type": r.item.source_type,
                 "source_ref": r.item.item_id.split(":", 1)[1], "relevant": e.relevant, "event_type": e.event_type,
                 "status": e.status, "direction": e.direction, "locations": e.locations, "countries": e.countries,
-                "products": e.products, "start_date": e.start_date, "end_date": e.end_date, "rate_percent": e.rate_percent,
+                "products": e.products, "start_date": e.start_date, "end_date": e.end_date, "rate_percent": e.rate_percent, "imposing_country": e.imposing_country,
                 "date_clarity": e.date_clarity, "location_clarity": e.location_clarity, "summary": e.summary or "",
                 "independent_sources": int(r.item.meta.get("independent_sources", 1)),
                 "reference_date": r.item.reference_date, "content_hash": r.item.content_hash(model, PROMPT_VERSION),

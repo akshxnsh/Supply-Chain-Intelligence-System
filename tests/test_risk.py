@@ -425,3 +425,29 @@ def test_unknown_rate_alert_is_saved_with_value_at_risk(alerts_db):
     row = run_query("SELECT * FROM alerts")[0]
     assert row["level"] == "watch" and row["exposure_usd"] == 0 and row["loss_components"] == {"value_at_risk_usd": 182000.0}
     assert row["notified_count"] == 0 and any("never Notify" in x or "can never Notify" in x for x in row["explanation"])
+
+
+# -- who imposes the duty ----------------------------------------------------------------------------------------------------------
+
+def test_a_duty_imposed_by_another_country_does_not_cost_this_importer():
+    ship = shipment()
+    china_on_us = tariff_signal(imposing_country="China", countries=["China", "United States"], products=[])
+    us_on_germany = tariff_signal(imposing_country="United States")
+    unknown = tariff_signal(imposing_country=None)
+    assert match_tariff(china_on_us, ship, PORTS, CFG, TODAY, importing_country="United States") is None
+    assert match_tariff(us_on_germany, ship, PORTS, CFG, TODAY, importing_country="United States")
+    assert match_tariff(us_on_germany, ship, PORTS, CFG, TODAY, importing_country="USA")            # country aliases
+    assert match_tariff(unknown, ship, PORTS, CFG, TODAY, importing_country="United States")        # text does not say: keep
+    assert match_tariff(china_on_us, shipment(country="China"), PORTS, CFG, TODAY) is not None      # no importer given: old behaviour
+    grouped = match_all([china_on_us, us_on_germany], [ship], PORTS, CFG, TODAY, importing_country="United States")
+    assert set(grouped) == {"t1"} and len(grouped["t1"]) == 1
+
+
+def test_events_carry_the_imposing_country_into_the_signal():
+    row = event_row(event_type="tariff_or_trade_rule", direction="higher_cost", rate_percent=24.0, imposing_country="China",
+                    countries=["China", "United States"])
+    (sig,) = signals_from_events([row], CFG, TODAY)
+    assert sig.imposing_country == "China" and sig.rate_percent == 24.0
+    (rows_us,) = [evaluate([sig], [shipment(country="China", supplier="sup-3")], company(), PORTS, CFG, TODAY, 2000.0, "biz", "United States")]
+    assert rows_us == []                                          # China's duty on US goods: no alert for a US importer
+    assert len(evaluate([sig], [shipment(country="China", supplier="sup-3")], company(), PORTS, CFG, TODAY, 2000.0, "biz", "China")) == 1

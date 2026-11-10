@@ -37,6 +37,7 @@ class Signal:
     end: date | None = None
     expected_delay_days: float = 0.0
     rate_percent: float | None = None    # tariff signals: only a rate the notice STATES (None = unknown, never guessed)
+    imposing_country: str | None = None  # tariff signals: who charges the duty (None = the text does not say)
     fx_currency: str | None = None
     fx_move_pct: float | None = None
     independent_sources: int = 1
@@ -91,7 +92,7 @@ def signals_from_events(rows: list[dict], cfg: dict, today: date) -> list[Signal
             event_type=etype, title=r["summary"] or r["event_id"], status=r["status"],
             reference_date=r["reference_date"], locations=list(r["locations"] or []),
             countries=list(r["countries"] or []), products=list(r["products"] or []),
-            start=r["start_date"], end=r["end_date"],
+            start=r["start_date"], end=r["end_date"], imposing_country=r.get("imposing_country"),
             expected_delay_days=0.0 if tariff else float(cfg["default_delay_days"].get(etype, cfg["default_delay_days"]["unknown"])),
             independent_sources=int(r.get("independent_sources") or 1),
             date_clarity=r["date_clarity"], location_clarity=r["location_clarity"],

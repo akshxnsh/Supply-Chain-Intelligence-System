@@ -69,6 +69,11 @@ def load_company(business_id: str, today: date, cfg: dict) -> tuple[list[dict], 
     return shipments, CompanyData(orders, inventory, lead, best)
 
 
+def importing_country(business_id: str) -> str:
+    rows = run_query("SELECT importing_country FROM trader_settings WHERE business_id = %(b)s", {"b": business_id})
+    return rows[0]["importing_country"] if rows else "United States"
+
+
 def trader_threshold(business_id: str, cfg: dict) -> float:
     rows = run_query("SELECT notify_threshold_usd FROM trader_settings WHERE business_id = %(b)s", {"b": business_id})
     return float(rows[0]["notify_threshold_usd"]) if rows else float(cfg["alerts"]["default_notify_threshold_usd"])
@@ -112,8 +117,8 @@ def default_action(exposure: Exposure, company: CompanyData, act_by: date | None
 
 
 def evaluate(signals: list[Signal], shipments: list[dict], company: CompanyData, ports: PortIndex, cfg: dict,
-             today: date, threshold_usd: float, business_id: str) -> list[AlertRow]:
-    matches = match_all(signals, shipments, ports, cfg, today)
+             today: date, threshold_usd: float, business_id: str, importing_country: str | None = None) -> list[AlertRow]:
+    matches = match_all(signals, shipments, ports, cfg, today, importing_country)
     rows: list[AlertRow] = []
     for sig in signals:
         ms = matches.get(sig.signal_id)
@@ -206,7 +211,7 @@ def run_risk(business_id: str = "demo-business-001", today: date | None = None, 
     shipments, company = load_company(business_id, today, cfg)
     signals = load_signals(cfg, today, ports)
     threshold = trader_threshold(business_id, cfg)
-    rows = evaluate(signals, shipments, company, ports, cfg, today, threshold, business_id)
+    rows = evaluate(signals, shipments, company, ports, cfg, today, threshold, business_id, importing_country(business_id))
     if persist_alerts:
         persist(rows, cfg)
     return {

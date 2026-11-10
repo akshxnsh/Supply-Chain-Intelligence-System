@@ -110,6 +110,14 @@ def test_long_country_lists_are_trimmed_not_rejected():
     assert errors == {} and events["a"].countries == countries[:6]
 
 
+def test_imposing_country_is_cleaned_and_unknown_means_none():
+    ok = ReadEvent.model_validate(good("a", imposing_country="  United States "))
+    assert ok.imposing_country == "United States"
+    for blank in (None, "", "unknown", "N/A", "null"):
+        assert ReadEvent.model_validate(good("a", imposing_country=blank)).imposing_country is None
+    assert "imposing_country" in build_prompt([item(1)]) and PROMPT_VERSION == "reader-v3"
+
+
 # -- limiter and retry --------------------------------------------------------------
 
 def test_rate_limiter_spaces_calls():
