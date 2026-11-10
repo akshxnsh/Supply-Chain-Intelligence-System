@@ -19,7 +19,7 @@ def _model(*names: str, default: str) -> str:
     return default
 
 
-# Reader: runs many times (batched), so a cheap high-quota model.
-READER_MODEL = _model("READER_MODEL", "MODEL_NAME", default="gemini-2.5-flash-lite")
+# Reader: runs many times (batched), so a cheap high-quota model. (gemini-2.5-flash-lite is closed to new users since late 2026.)
+READER_MODEL = _model("READER_MODEL", "MODEL_NAME", default="gemini-3.5-flash-lite")
 # Judge: runs rarely, so a stronger model (severity + recommended action).
 JUDGE_MODEL = _model("JUDGE_MODEL", "MODEL_NAME", default="gemini-2.5-flash")

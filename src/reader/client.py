@@ -24,7 +24,7 @@ class LLMResponse:
 
 
 class LLMClient(Protocol):
-    def generate(self, prompt: str, model: str, *, temperature: float = 0.0, max_output_tokens: int = 4096) -> LLMResponse: ...
+    def generate(self, prompt: str, model: str, *, temperature: float = 0.0, max_output_tokens: int = 8192) -> LLMResponse: ...
 
 
 class GeminiClient:
@@ -39,7 +39,7 @@ class GeminiClient:
         self._genai = genai
         self._client = genai.Client(api_key=self._api_key)
 
-    def generate(self, prompt: str, model: str, *, temperature: float = 0.0, max_output_tokens: int = 4096) -> LLMResponse:
+    def generate(self, prompt: str, model: str, *, temperature: float = 0.0, max_output_tokens: int = 8192) -> LLMResponse:
         from google.genai import errors, types
 
         started = time.perf_counter()

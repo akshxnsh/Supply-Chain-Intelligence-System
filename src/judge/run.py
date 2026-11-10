@@ -19,7 +19,7 @@ from psycopg.types.json import Jsonb
 from src.agent.model_config import JUDGE_MODEL
 from src.ingestion.db import get_pool
 from src.judge.evidence import build_bundle, fetch_source_texts
-from src.judge.judge import Judge, JudgeResult
+from src.judge.judge import Judge, JudgeResult, fallback_decision
 from src.reader.cache import make_cache
 from src.reader.client import GeminiClient
 from src.reader.limiter import LLMError, RateLimiter
@@ -29,6 +29,9 @@ from src.risk.pipeline import run_risk
 
 JUDGED_LEVELS = ("notify",)
 DEFAULT_RPM = 5
+# Free-tier quota for the judge model was 20 requests/day in Nov 2026, so only the biggest alerts get a model call per run;
+# the rest keep the rule-based recommendation (judge_source = fallback, with the reason stored).
+DEFAULT_MAX_MODEL_CALLS = 10
 
 UPDATE_JUDGEMENT = """
 UPDATE alerts SET action = %(action)s, act_by = %(act_by)s, judge_source = %(source)s, judge_model = %(model)s,
@@ -55,12 +58,22 @@ def make_client():
         return None
 
 
-def judge_rows(rows, company, today, judge: Judge) -> list[tuple[object, JudgeResult]]:
-    todo = [r for r in rows if r.level in JUDGED_LEVELS]
+def judge_rows(rows, company, today, judge: Judge, max_model_calls: int | None = None):
+    """Judge Notify-level alerts, biggest expected loss first; at most `max_model_calls` go to the model (cache hits are free)."""
+    if max_model_calls is None:
+        max_model_calls = int(os.getenv("JUDGE_MAX_PER_RUN", DEFAULT_MAX_MODEL_CALLS))
+    todo = sorted((r for r in rows if r.level in JUDGED_LEVELS), key=lambda r: -r.decision.expected_loss_usd)
     texts = fetch_source_texts(todo)
-    out = []
+    out, calls = [], 0
     for r in todo:
-        result = judge.judge(r, build_bundle(r, company, today, texts))
+        bundle = build_bundle(r, company, today, texts)
+        if judge.client is not None and calls >= max_model_calls and not judge.is_cached(r, bundle):
+            result = JudgeResult(fallback_decision(r, bundle), "fallback",
+                                 [f"not sent to the model: per-run cap of {max_model_calls} model calls reached (quota)"], judge.model)
+        else:
+            result = judge.judge(r, bundle)
+            if judge.client is not None and result.source != "cache":
+                calls += 1
         save_judgement(r.alert_id, result)
         out.append((r, result))
     return out

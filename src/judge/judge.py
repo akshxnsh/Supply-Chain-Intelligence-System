@@ -26,6 +26,10 @@ from src.risk.pipeline import AlertRow
 
 logger = logging.getLogger(__name__)
 
+# Gemini 2.5/3.x models spend hidden 'thinking' tokens out of this budget; 1,024 truncated every real answer
+# (live run 2026-11-10: 'unterminated JSON'), so leave generous room.
+MAX_OUTPUT_TOKENS = 8192
+
 
 @dataclass
 class JudgeResult:
@@ -66,9 +70,15 @@ class Judge:
         self.model, self.max_retries, self._sleep = model, max_retries, sleep
         self.log = call_logger or NullLogger()
 
+    def _key(self, bundle: EvidenceBundle) -> str:
+        return hashlib.sha256(f"{PROMPT_VERSION}{self.model}{build_prompt(bundle)}".encode()).hexdigest()
+
+    def is_cached(self, row: AlertRow, bundle: EvidenceBundle) -> bool:
+        return bool(self.cache and self.cache.get(self._key(bundle)))
+
     def judge(self, row: AlertRow, bundle: EvidenceBundle) -> JudgeResult:
         prompt = build_prompt(bundle)
-        key = hashlib.sha256(f"{PROMPT_VERSION}\x1f{self.model}\x1f{prompt}".encode()).hexdigest()
+        key = self._key(bundle)
         entry = {"purpose": "judge", "kind": "call", "model": self.model, "prompt_version": PROMPT_VERSION, "batch_size": 1,
                  "attempt": 1, "cache_hits": 0, "cache_misses": 1}
 
@@ -89,7 +99,7 @@ class Judge:
             self.log.log({**entry, "status": "retry", "error": f"try {n}: {exc}"[:300]})
 
         try:
-            resp = call_with_retry(lambda: self.client.generate(prompt, self.model, temperature=0.1, max_output_tokens=1024),
+            resp = call_with_retry(lambda: self.client.generate(prompt, self.model, temperature=0.1, max_output_tokens=MAX_OUTPUT_TOKENS),
                                    limiter=self.limiter, max_retries=self.max_retries, sleep=self._sleep, on_retry=on_retry)
         except LLMError as exc:
             self.log.log({**entry, "status": "error", "error": str(exc)[:300]})

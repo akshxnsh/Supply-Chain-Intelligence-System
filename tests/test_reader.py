@@ -103,6 +103,13 @@ def test_normalize_rejects_impossible_dates_and_weak_signals():
     assert nowhere.location_clarity == "unclear"
 
 
+def test_long_country_lists_are_trimmed_not_rejected():
+    # real case: an antidumping notice naming 17 countries made the whole answer invalid
+    countries = [f"Country {i}" for i in range(17)]
+    events, errors = parse_response(json.dumps({"items": [good("a", countries=countries)]}), {"a"})
+    assert errors == {} and events["a"].countries == countries[:6]
+
+
 # -- limiter and retry --------------------------------------------------------------
 
 def test_rate_limiter_spaces_calls():

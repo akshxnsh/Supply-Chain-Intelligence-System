@@ -22,6 +22,7 @@ Status = Literal["happened", "ongoing", "expected", "unknown"]
 Clarity = Literal["explicit", "implied", "unclear"]
 Direction = Literal["delay", "higher_cost", "both", "none", "unknown"]
 
+MAX_LIST_ITEMS = 6
 MAX_FUTURE_DAYS = 730      # a date further than 2 years from the text's own date is treated as a model mistake
 MAX_PAST_DAYS = 365
 
@@ -34,9 +35,9 @@ class ReadEvent(BaseModel):
     event_type: EventType = "unknown"
     status: Status = "unknown"
     direction: Direction = "unknown"
-    locations: list[str] = Field(default_factory=list, max_length=6)
-    countries: list[str] = Field(default_factory=list, max_length=6)
-    products: list[str] = Field(default_factory=list, max_length=6)
+    locations: list[str] = Field(default_factory=list)   # trimmed to MAX_LIST_ITEMS by the validator (a notice may name 17 countries)
+    countries: list[str] = Field(default_factory=list)
+    products: list[str] = Field(default_factory=list)
     start_date: Optional[date] = None
     end_date: Optional[date] = None
     rate_percent: Optional[float] = Field(default=None, ge=0, le=500, description="duty/tariff rate in percent if the text states one")
@@ -56,7 +57,7 @@ class ReadEvent(BaseModel):
             x = str(x).strip()
             if x and x.lower() not in ("unknown", "n/a", "none") and x not in out:
                 out.append(x[:80])
-        return out
+        return out[:MAX_LIST_ITEMS]  # keep the first few instead of rejecting a long (but valid) answer
 
     @field_validator("summary", mode="before")
     @classmethod

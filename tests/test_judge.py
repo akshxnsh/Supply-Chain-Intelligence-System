@@ -226,3 +226,21 @@ def test_judgement_is_saved_on_the_alert_and_news_text_comes_from_the_database(p
     assert saved["judge_source"] == "model" and saved["judge_model"] == "judge-test" and saved["judge_action_type"] == "order_replacement"
     assert saved["action"].startswith("Order replacement auto_parts from Harrisburg") and saved["act_by"] == TODAY
     assert saved["judge_claims"][1]["evidence_ids"] == ["article:a1"] and saved["judge_issues"] == [] and saved["judged_at"] is not None
+
+
+def test_per_run_cap_sends_only_the_biggest_alerts_to_the_model(pg_url):
+    from src.judge.run import judge_rows
+
+    sigs = [delay_signal(signal_id=f"s{i}", dedupe_key=f"s{i}", event_type="port_closure", expected_delay_days=10.0, end=TODAY + timedelta(days=9),
+                         independent_sources=4) for i in range(3)]
+    rows = evaluate(sigs, [shipment()], company(), PORTS, CFG, TODAY, 2000.0, "biz")
+    assert len(rows) == 3
+    for i, r in enumerate(rows):                       # make the alerts differ in size
+        r.decision.expected_loss_usd = 1000.0 * (i + 1)
+    llm = FakeLLM(decision(claims=[{"statement": "Stock is short.", "evidence_ids": ["facts"]}]))
+    out = judge_rows(rows, company(), TODAY, make_judge(llm), max_model_calls=1)
+    by_loss = {r.decision.expected_loss_usd: res for r, res in out}
+    assert llm.calls == 1 and by_loss[3000.0].source == "model"                 # the biggest one got the model call
+    assert by_loss[2000.0].source == "fallback" and "per-run cap of 1" in by_loss[2000.0].issues[0]
+    assert by_loss[1000.0].source == "fallback"
+    assert [r.decision.expected_loss_usd for r, _ in out] == [3000.0, 2000.0, 1000.0]
