@@ -86,20 +86,45 @@ def test_every_connector_declares_tables_with_primary_keys(name, sdk, monkeypatc
 
 # -- GDELT ---------------------------------------------------------------------
 
-def test_gdelt_window_and_upsert(sdk, monkeypatch):
+def test_gdelt_window_per_query_cursor(sdk, monkeypatch):
     mod = load_connector("gdelt", monkeypatch)
     now = datetime(2026, 11, 10, 12, 0, tzinfo=timezone.utc)
-    assert mod.hours_to_fetch({}, now) == 24
-    assert mod.hours_to_fetch({"last_run": "2026-11-10T10:30:00+00:00"}, now) == 3   # ceil(1.5) + 1 overlap
-    assert mod.hours_to_fetch({"last_run": "2026-11-01T00:00:00+00:00"}, now) == 24  # capped
-    assert mod.hours_to_fetch({"last_run": "2026-11-10T11:59:00+00:00"}, now) == 2
+    assert mod.hours_to_fetch(None, now) == mod.MAX_HOURS
+    assert mod.hours_to_fetch("2026-11-10T10:30:00+00:00", now) == 3   # ceil(1.5) + 1 overlap
+    assert mod.hours_to_fetch("2026-10-01T00:00:00+00:00", now) == mod.MAX_HOURS  # capped
+    assert mod.hours_to_fetch("2026-11-10T11:59:00+00:00", now) == 2
 
-    seen = {}
-    monkeypatch.setattr(mod.gdelt, "fetch_all", lambda timespan: seen.setdefault("t", timespan) and [{"article_id": "a1"}, {"article_id": "a2"}])
-    mod.update({}, {})
-    assert seen["t"] == "24h"
-    assert [t for t, _ in sdk.upserts] == ["articles", "articles"]
-    assert "last_run" in sdk.checkpoints[-1]
+
+def test_gdelt_skips_rate_limited_search_but_keeps_its_cursor(sdk, monkeypatch):
+    mod = load_connector("gdelt", monkeypatch)
+    FetchError = mod.FetchError  # the connector's own copy of the class (module copies are per-connector)
+    asked = []
+
+    def fake_fetch(query, query_name, timespan, retries, backoff):
+        asked.append((query_name, timespan))
+        if query_name == "shipping":
+            raise FetchError("HTTP 429 from api.gdeltproject.org")
+        return [{"article_id": f"{query_name}-1"}]
+
+    monkeypatch.setattr(mod.gdelt, "fetch_articles", fake_fetch)
+    mod.update({}, {"last_run_by_query": {"shipping": "2026-11-09T00:00:00+00:00"}})
+    assert {t for t, _ in sdk.upserts} == {"articles"} and len(sdk.upserts) == 2   # ports + trade only
+    cursors = sdk.checkpoints[-1]["last_run_by_query"]
+    assert set(cursors) == {"ports", "trade", "shipping"} and cursors["shipping"] == "2026-11-09T00:00:00+00:00"
+    assert cursors["ports"] > "2026-11-10"  # advanced for the searches that worked
+
+
+def test_gdelt_fails_the_sync_only_when_every_search_fails(sdk, monkeypatch):
+    mod = load_connector("gdelt", monkeypatch)
+    FetchError = mod.FetchError
+
+    def always_429(**kwargs):
+        raise FetchError("HTTP 429")
+
+    monkeypatch.setattr(mod.gdelt, "fetch_articles", lambda *a, **k: always_429())
+    with pytest.raises(RuntimeError, match="every search failed"):
+        mod.update({}, {})
+    assert sdk.upserts == [] and sdk.checkpoints == []
 
 
 # -- GDACS ---------------------------------------------------------------------

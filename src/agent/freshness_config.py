@@ -1,76 +1,40 @@
-"""Configuration for table freshness checks and connector mapping."""
+"""Configuration for data freshness checks: which Fivetran-loaded table belongs to which connection.
+
+Freshness = newest `_fivetran_synced` in the table (Fivetran stamps every row it writes). One representative
+table per connection, chosen because every sync re-writes at least one of its rows (GDELT: new articles,
+GDACS/Federal Register/ECB: the overlap window is re-upserted, Open-Meteo: forecast replaced each run).
+PortWatch's disruptions layer is stale at the source, so its catalogue table (refreshed monthly) is used.
+Company sample data (suppliers, orders, inventory) has no connector and is not tracked here.
+"""
 
 from __future__ import annotations
 
 from dataclasses import dataclass
 
-
-DEFAULT_MAX_AGE_MINUTES = 60
+FIVETRAN_SYNCED_COLUMN = "_fivetran_synced"
 
 
 @dataclass(frozen=True)
 class FreshnessTableConfig:
-    table_name: str
-    connector_id: str
-    max_age_minutes: int = DEFAULT_MAX_AGE_MINUTES
+    table_name: str        # logical name used by the API / UI / agent tools
+    schema: str            # Postgres schema Fivetran writes to (one per connection)
+    table: str
+    connector_id: str      # Fivetran connection id
+    max_age_minutes: int   # older than this = stale
+    column: str = FIVETRAN_SYNCED_COLUMN
 
 
+# max_age = about 3x the sync interval (see FREQUENCY_MINUTES in scripts/fivetran_api.py)
 FRESHNESS_TABLES: dict[str, FreshnessTableConfig] = {
-    "alternative_suppliers": FreshnessTableConfig(
-        table_name="alternative_suppliers",
-        connector_id="deserving_emancipated",
-        max_age_minutes=24 * 60,
-    ),
-    "business_suppliers": FreshnessTableConfig(
-        table_name="business_suppliers",
-        connector_id="incomparably_winning",
-        max_age_minutes=24 * 60,
-    ),
-    "completed_orders": FreshnessTableConfig(
-        table_name="completed_orders",
-        connector_id="guess_jawless",
-        max_age_minutes=24 * 60,
-    ),
-    "disruption_events": FreshnessTableConfig(
-        table_name="disruption_events",
-        connector_id="baritone_tadpole",
-        max_age_minutes=60,
-    ),
-    "inventory": FreshnessTableConfig(
-        table_name="inventory",
-        connector_id="mayflower_chief",
-        max_age_minutes=30,
-    ),
-    "pending_orders": FreshnessTableConfig(
-        table_name="pending_orders",
-        connector_id="disordered_forbidden",
-        max_age_minutes=30,
-    ),
-    "port_activity": FreshnessTableConfig(
-        table_name="port_activity",
-        connector_id="utilizing_vehement",
-        max_age_minutes=60,
-    ),
-    "shipment_timetable": FreshnessTableConfig(
-        table_name="shipment_timetable",
-        connector_id="capitalistic_cherub",
-        max_age_minutes=30,
-    ),
-    "supplier_reviews": FreshnessTableConfig(
-        table_name="supplier_reviews",
-        connector_id="investigating_release",
-        max_age_minutes=24 * 60,
-    ),
-    "tariff_updates": FreshnessTableConfig(
-        table_name="tariff_updates",
-        connector_id="proximate_nourish",
-        max_age_minutes=24 * 60,
-    ),
-    "weather_alerts": FreshnessTableConfig(
-        table_name="weather_alerts",
-        connector_id="catlike_snowbird",
-        max_age_minutes=60,
-    ),
+    "gdelt_articles": FreshnessTableConfig("gdelt_articles", "fivetran_raw_gdelt", "articles", "diplomat_umpire", 90),
+    "gdacs_events": FreshnessTableConfig("gdacs_events", "fivetran_raw_gdacs", "events", "visiting_reminiscent", 9 * 60),
+    "portwatch_ports": FreshnessTableConfig("portwatch_ports", "fivetran_raw_portwatch", "ports", "tonsils_assistance", 35 * 24 * 60),
+    "federal_register_documents": FreshnessTableConfig(
+        "federal_register_documents", "fivetran_raw_federal_register", "documents", "derivation_popular", 18 * 60),
+    "open_meteo_forecast": FreshnessTableConfig(
+        "open_meteo_forecast", "fivetran_raw_open_meteo", "daily_forecast", "reflector_chose", 18 * 60),
+    "ecb_exchange_rates": FreshnessTableConfig(
+        "ecb_exchange_rates", "fivetran_raw_ecb", "exchange_rates", "flourishing_unsnap", 3 * 24 * 60),
 }
 
 

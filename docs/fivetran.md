@@ -53,3 +53,28 @@ Output lands in `connectors/<name>/files/warehouse.db` (DuckDB, git-ignored). Ru
 - One Fivetran connection per source means one Postgres **schema per source**: `fivetran_raw_<source>` (e.g. `fivetran_raw_ecb`),
   not one shared `fivetran_raw`. Independent schedules were worth more than a single schema name.
 - `PORTWATCH_ARCGIS_TOKEN`-gated daily traffic is optional; see `docs/sources.md`.
+
+## Deployed (2026-11-10)
+Fivetran account: 30-day trial (the plan assumed the free plan - the monthly-active-row limit may differ after the trial).
+Destination: group `Warehouse` (id `beasts_deniable`), PostgreSQL pointing at the Neon `chainguard` database; all connection tests passed.
+
+| connection (= Postgres schema) | id | tables in Neon | rows after first sync |
+|---|---|---|---|
+| `fivetran_raw_ecb` | flourishing_unsnap | exchange_rates | 768 |
+| `fivetran_raw_federal_register` | derivation_popular | documents | 276 |
+| `fivetran_raw_gdacs` | visiting_reminiscent | events | 100 |
+| `fivetran_raw_open_meteo` | reflector_chose | daily_forecast | 56 (8 locations x 7 days) |
+| `fivetran_raw_portwatch` | tonsils_assistance | ports, chokepoints, disruptions | 2,065 + 28 + 132 |
+| `fivetran_raw_gdelt` | diplomat_umpire | articles | see PROGRESS.md |
+
+Deploy command (per connector; the key is the base64 "key:secret" in `.env` as `FIVETRAN_API_KEY`):
+```bash
+fivetran deploy connectors/<name> --api-key "$KEY" --destination Warehouse --connection fivetran_raw_<name> \
+    --configuration configuration.json --python-version 3.12 --yes
+```
+New connections start **paused**. `python -m scripts.fivetran_api schedule` un-pauses them and sets the frequencies above;
+`... status` shows state; `... sync` starts a sync now. Redeploy after changing a connector (run
+`python -m scripts.sync_connector_fetchers` first so the fetcher copies match `src/fetchers`).
+
+Code reads these tables through `src/ingestion/raw.py` (read-only helpers) and the freshness check
+(`src/agent/freshness_config.py`: newest `_fivetran_synced` per connection).

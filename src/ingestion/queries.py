@@ -409,10 +409,20 @@ def query_calibration_scores(limit: int = 50) -> list[float]:
     return [r["severity_scored"] for r in rows]
 
 
-def query_table_last_updated(table_name: str) -> Optional[datetime]:
-    """Newest updated_at in a table (Postgres has no table-modified metadata). Table name must be pre-validated."""
+def query_table_last_updated(table_name: str, schema: Optional[str] = None,
+                             column: str = "updated_at") -> Optional[datetime]:
+    """Newest value of a timestamp column (Postgres has no table-modified metadata).
+
+    Our own tables use `updated_at`; Fivetran tables use `_fivetran_synced` in their own schema.
+    Identifiers come from code (freshness_config), never from users, and are quoted.
+    """
     from src.ingestion.db import quote_ident
-    rows = run_query(f"SELECT max(updated_at) AS last_updated FROM {quote_ident(table_name)}")
+    target = f"{quote_ident(schema)}.{quote_ident(table_name)}" if schema else quote_ident(table_name)
+    import psycopg.errors
+    try:
+        rows = run_query(f"SELECT max({quote_ident(column)}) AS last_updated FROM {target}")
+    except psycopg.errors.UndefinedTable:  # connector has not completed its first sync yet
+        return None
     return rows[0]["last_updated"] if rows else None
 
 

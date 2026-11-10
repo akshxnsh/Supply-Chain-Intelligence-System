@@ -51,7 +51,7 @@ def _normalize_tables(table_names: list[str] | None = None) -> list[str]:
 
 def _table_freshness(table_name: str) -> dict[str, Any]:
     config = get_table_config(table_name)  # also validates the table name
-    modified_at = query_table_last_updated(table_name)
+    modified_at = query_table_last_updated(config.table, schema=config.schema, column=config.column)
     if modified_at is None:
         age_minutes = float("inf")
         last_modified = None

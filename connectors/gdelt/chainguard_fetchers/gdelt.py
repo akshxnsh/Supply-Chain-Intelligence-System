@@ -74,8 +74,9 @@ def parse_articles(payload: dict, query_name: str | None = None) -> list[dict]:
 def fetch_articles(query: str, query_name: str | None = None, timespan: str = "1d",
                    maxrecords: int = 250, **http_kwargs) -> list[dict]:
     http_kwargs.setdefault("timeout", TIMEOUT)
-    payload = get_json(GDELT_URL, article_params(query, timespan, maxrecords),
-                       min_interval=MIN_INTERVAL_SECONDS, backoff=6.0, **http_kwargs)
+    http_kwargs.setdefault("backoff", 6.0)
+    http_kwargs.setdefault("min_interval", MIN_INTERVAL_SECONDS)
+    payload = get_json(GDELT_URL, article_params(query, timespan, maxrecords), **http_kwargs)
     return parse_articles(payload, query_name)
 
 
