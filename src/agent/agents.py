@@ -48,7 +48,7 @@ from src.agent.tools import (
 )
 
 
-MODEL = os.getenv("MODEL_NAME", "gemini-2.0-flash").removeprefix("models/")
+from src.agent.model_config import JUDGE_MODEL as MODEL  # single source of truth
 
 _VALID_FRESHNESS_TABLES = ", ".join(sorted(_FRESHNESS_TABLES.keys()))
 

@@ -29,7 +29,7 @@ from pydantic import BaseModel, Field
 
 _log = logging.getLogger(__name__)
 
-MODEL = os.getenv("MODEL_NAME", "gemini-2.0-flash").removeprefix("models/")
+from src.agent.model_config import JUDGE_MODEL as MODEL  # single source of truth
 
 # Compact instruction — single block, no duplicated schemas/examples (Task 4).
 _SYNTHESIS_INSTRUCTION = (
