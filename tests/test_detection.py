@@ -42,7 +42,7 @@ def _patch_base_detection(monkeypatch, shipment, weather_alerts):
     monkeypatch.setattr(
         disruption_detector,
         "query_recent_weather_alerts",
-        lambda hours: weather_alerts,
+        lambda hours_back: weather_alerts,
     )
     monkeypatch.setattr(disruption_detector, "query_tariff_updates", lambda days_back: [])
     monkeypatch.setattr(disruption_detector, "query_port_status", lambda port_name: [])
@@ -109,7 +109,7 @@ def test_detect_disruptions_tariff_uses_shipments_not_pending_orders(monkeypatch
     monkeypatch.setattr(
         disruption_detector,
         "query_recent_weather_alerts",
-        lambda hours: [],
+        lambda hours_back: [],
     )
     monkeypatch.setattr(
         disruption_detector,

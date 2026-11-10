@@ -56,6 +56,7 @@ class FakeRunner:
 
 @pytest.mark.asyncio
 async def test_runtime_uses_adk_session_and_runner(monkeypatch):
+    monkeypatch.setenv("OPTIMIZED_PIPELINE", "0")  # this test covers the legacy ADK Runner path
     sessions = FakeSessionService()
     monkeypatch.setattr(runtime, "_get_session_service", lambda: sessions)
     monkeypatch.setattr(runtime, "Runner", FakeRunner)

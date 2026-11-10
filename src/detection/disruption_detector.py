@@ -1,7 +1,7 @@
 from datetime import datetime, timedelta, timezone
 import json
 from typing import Dict, Any
-from src.ingestion.bq_client import (
+from src.ingestion.queries import (
     query_recent_events,
     query_business_suppliers,
     query_recent_weather_alerts,

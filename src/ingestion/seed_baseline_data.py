@@ -1,5 +1,5 @@
 """
-Seed BigQuery with a HEALTHY pre-incident baseline for demo-business-001
+Seed PostgreSQL with a HEALTHY pre-incident baseline for demo-business-001
 (Mid-Atlantic Auto Parts Distribution LLC).
 
 This represents the world BEFORE the Francis Scott Key Bridge collapse:
@@ -23,18 +23,7 @@ checkpoint, (d) a disruption event whose country matches a supplier, or (e) a ta
 whose (country, product) matches a supplier. The baseline below satisfies NONE of
 these, so affected_suppliers == [].
 
-THE INCIDENT DATASET lives in src/ingestion/seed_data.py. It is delivered to
-BigQuery later by the FreshnessAgent (Fivetran connector sync -> Neon Postgres
-google_sheets schema -> sync_postgres_to_bigquery, which WRITE_TRUNCATE-replaces
-each table). Because every baseline auto_parts shipment is destined for Port of
-Baltimore, a refresh of disruption_events ALONE is sufficient to flip the scenario:
-the Baltimore headline then matches the upcoming "Port of Baltimore" checkpoint on
-those shipments and the alert fires. Refreshing port_activity / shipment_timetable /
-tariff_updates completes the full incident picture (congestion 10.0, 1848h delay,
-reroutes, exposure figures). For a deterministic demo, drive the transition with the
-FreshnessAgent's direct sync tool (sync_postgres_table_to_bigquery), which bypasses
-the staleness gate; the staleness-gated path (refresh_all_stale_tables) instead waits
-out each table's freshness window (30–60 min for the signal tables).
+THE INCIDENT DATASET lives in src/ingestion/seed_data.py.
 """
 
 from datetime import datetime, timedelta
@@ -194,7 +183,7 @@ def seed_inventory_baseline():
 
 
 def seed_baseline():
-    print("🌱 Seeding HEALTHY baseline (pre-incident) into BigQuery...\n")
+    print("🌱 Seeding HEALTHY baseline (pre-incident) into PostgreSQL...\n")
     # Unchanged structural / historical tables — reused from the incident seeder.
     seed_business_suppliers()
     seed_pending_orders()
@@ -209,7 +198,7 @@ def seed_baseline():
     seed_weather_alerts_baseline()
     seed_tariff_updates_baseline()
     seed_inventory_baseline()
-    print("\n✅ BASELINE LOADED — BigQuery healthy, no Baltimore incident. Expect alert_fired = false.")
+    print("\n✅ BASELINE LOADED — database healthy, no Baltimore incident. Expect alert_fired = false.")
 
 
 if __name__ == "__main__":

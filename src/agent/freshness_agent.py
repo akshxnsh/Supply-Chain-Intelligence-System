@@ -1,4 +1,4 @@
-"""ADK freshness tools for BigQuery-backed supply-chain tables."""
+"""ADK freshness tools for PostgreSQL-backed supply-chain tables."""
 
 from __future__ import annotations
 
@@ -8,8 +8,7 @@ from datetime import datetime, timezone
 from typing import Any
 
 from src.agent.freshness_config import configured_table_names, get_table_config
-from src.ingestion.bq_client import DATASET, PROJECT_ID, client
-from src.ingestion.sync_postgres_to_bigquery import sync_table
+from src.ingestion.queries import query_table_last_updated
 from src.tools.fivetran_mcp_client import (
     get_connector_status as get_fivetran_connector_status,
 )
@@ -17,12 +16,11 @@ from src.tools.fivetran_mcp_client import trigger_connector_sync
 
 
 __all__ = [
-    "check_bigquery_table_freshness",
+    "check_table_freshness",
     "identify_stale_tables",
     "refresh_connector",
     "get_connector_status",
     "wait_for_connector_completion",
-    "sync_postgres_table_to_bigquery",
     "refresh_stale_table",
     "refresh_all_stale_tables",
 ]
@@ -52,25 +50,28 @@ def _normalize_tables(table_names: list[str] | None = None) -> list[str]:
 
 
 def _table_freshness(table_name: str) -> dict[str, Any]:
-    config = get_table_config(table_name)
-    table = client.get_table(f"{PROJECT_ID}.{DATASET}.{table_name}")
-    modified_at = table.modified
-    if modified_at.tzinfo is None:
-        modified_at = modified_at.replace(tzinfo=timezone.utc)
-
-    age_minutes = (_utc_now() - modified_at).total_seconds() / 60
+    config = get_table_config(table_name)  # also validates the table name
+    modified_at = query_table_last_updated(table_name)
+    if modified_at is None:
+        age_minutes = float("inf")
+        last_modified = None
+    else:
+        if modified_at.tzinfo is None:
+            modified_at = modified_at.replace(tzinfo=timezone.utc)
+        age_minutes = (_utc_now() - modified_at).total_seconds() / 60
+        last_modified = modified_at.isoformat()
     return {
         "table_name": table_name,
         "connector_id": config.connector_id,
-        "last_modified": modified_at.isoformat(),
-        "age_minutes": round(age_minutes, 2),
+        "last_modified": last_modified,
+        "age_minutes": round(age_minutes, 2) if age_minutes != float("inf") else None,
         "max_age_minutes": config.max_age_minutes,
         "is_stale": age_minutes > config.max_age_minutes,
     }
 
 
-async def check_bigquery_table_freshness(table_names: list[str] | None = None) -> str:
-    """Return freshness metadata for configured BigQuery tables."""
+async def check_table_freshness(table_names: list[str] | None = None) -> str:
+    """Return freshness metadata (newest updated_at) for configured PostgreSQL tables."""
     rows = await asyncio.gather(
         *[
             asyncio.to_thread(_table_freshness, table_name)
@@ -81,8 +82,8 @@ async def check_bigquery_table_freshness(table_names: list[str] | None = None) -
 
 
 async def identify_stale_tables(table_names: list[str] | None = None) -> str:
-    """Identify configured BigQuery tables whose metadata is older than policy."""
-    freshness = json.loads(await check_bigquery_table_freshness(table_names))
+    """Identify configured tables whose newest row is older than policy."""
+    freshness = json.loads(await check_table_freshness(table_names))
     stale_tables = [row for row in freshness if row["is_stale"]]
     return json.dumps({"stale_tables": stale_tables, "stale_count": len(stale_tables)}, default=str)
 
@@ -147,22 +148,9 @@ async def wait_for_connector_completion(
         await asyncio.sleep(poll_interval_seconds)
 
 
-async def sync_postgres_table_to_bigquery(table_name: str) -> str:
-    """Run sync_postgres_to_bigquery.py logic for a single configured table."""
-    get_table_config(table_name)
-    synced = await asyncio.to_thread(sync_table, table_name)
-    return json.dumps({"table_name": table_name, "synced": synced})
-
-
 async def refresh_stale_table(table_name: str) -> str:
-    """Refresh one stale table by syncing PostgreSQL → BigQuery, then verify freshness.
-
-    The Fivetran connector step (Google Sheets → Postgres) is intentionally skipped:
-    the demo stages the incident dataset directly into the Postgres source schema via
-    load_incident_source.py, so re-running Fivetran here would overwrite it with the
-    baseline workbook before the BigQuery sync. Refresh reads straight from Postgres.
-    """
-    before = _table_freshness(table_name)
+    """Refresh one stale table: trigger its Fivetran sync, wait, then re-check freshness."""
+    before = await asyncio.to_thread(_table_freshness, table_name)
     if not before["is_stale"]:
         return json.dumps(
             {
@@ -174,13 +162,15 @@ async def refresh_stale_table(table_name: str) -> str:
             default=str,
         )
 
-    sync_result = json.loads(await sync_postgres_table_to_bigquery(table_name))
+    refresh = json.loads(await refresh_connector(table_name))
+    waited = json.loads(await wait_for_connector_completion(table_name))
     after = await asyncio.to_thread(_table_freshness, table_name)
 
     return json.dumps(
         {
             "table_name": table_name,
-            "sync_result": sync_result,
+            "refresh": refresh,
+            "connector_status": waited.get("status"),
             "freshness_before": before,
             "freshness_after": after,
             "verified_fresh": not after["is_stale"],

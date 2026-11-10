@@ -8,7 +8,7 @@ from typing import Any
 def fetch_shipment_schedule(business_id: str) -> list[dict[str, Any]]:
     """Return active shipments for the given business."""
     try:
-        from src.ingestion.bq_client import query_supplier_timetable
+        from src.ingestion.queries import query_supplier_timetable
     except Exception:
         return []
     return query_supplier_timetable(business_id)

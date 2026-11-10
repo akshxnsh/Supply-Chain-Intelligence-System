@@ -1,6 +1,6 @@
 import json
 from typing import Any
-from src.ingestion.bq_client import (
+from src.ingestion.queries import (
     query_completed_orders_by_suppliers,
     query_supplier_reviews_by_suppliers,
 )

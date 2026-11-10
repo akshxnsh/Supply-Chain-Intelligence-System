@@ -1,47 +1,20 @@
+"""Sample (demo) data loader for PostgreSQL.
+
+Company data (suppliers, orders, inventory, shipments) stays as sample data.
+Run migrations first:  python -m src.ingestion.migrate
+Then:                  python -m src.ingestion.seed_data
+"""
+
 from datetime import datetime, timedelta
-import os, csv, tempfile
-from dotenv import load_dotenv
-from google.cloud import bigquery
 
-from src.ingestion.bq_client import client
+from src.ingestion.db import insert_rows
 
-load_dotenv()
 
-PROJECT_ID = "akshxnsh-supplychain"
-DATASET = "supply_chain"
+def load_rows(table_id: str, rows: list[dict], truncate: bool = True) -> None:
+    """Replace the contents of a table with `rows` (TRUNCATE + INSERT)."""
+    n = insert_rows(table_id, rows, truncate=truncate)
+    print(f"loaded {n} rows into {table_id}")
 
-def load_rows(
-    table_id: str,
-    rows: list[dict],
-    write_disposition=bigquery.WriteDisposition.WRITE_TRUNCATE,
-):
-    """Load rows via CSV — works in BigQuery Sandbox (no streaming needed)."""
-    table_ref = f"{PROJECT_ID}.{DATASET}.{table_id}"
-
-    # Write rows to a temp CSV file
-    with tempfile.NamedTemporaryFile(mode='w', suffix='.csv',
-                                     delete=False, newline='') as f:
-        writer = csv.DictWriter(f, fieldnames=rows[0].keys())
-        writer.writeheader()
-        writer.writerows(rows)
-        tmp_path = f.name
-
-    # Load CSV into BigQuery
-    job_config = bigquery.LoadJobConfig(
-        source_format=bigquery.SourceFormat.CSV,
-        skip_leading_rows=1,
-        write_disposition=write_disposition,
-        autodetect=True,
-    )
-
-    with open(tmp_path, "rb") as f:
-        job = client.load_table_from_file(f, table_ref, job_config=job_config)
-
-    job.result()  # Wait for job to complete
-    os.unlink(tmp_path)
-
-    table = client.get_table(table_ref)
-    print(f"✅ {table.num_rows} rows loaded into {table_id}")
 
 def seed_business_suppliers():
     rows = [
@@ -489,7 +462,7 @@ def seed_supplier_reviews():
     load_rows("supplier_reviews", rows)
 
 def seed_all():
-    print("🌱 Seeding BigQuery tables...\n")
+    print("🌱 Seeding PostgreSQL tables...\n")
     seed_business_suppliers()
     seed_pending_orders()
     seed_shipment_timetable()
@@ -502,7 +475,7 @@ def seed_all():
     seed_inventory()
     seed_completed_orders()
     seed_supplier_reviews()
-    print("\n✅ ALL SEED DATA LOADED — BigQuery ready")
+    print("\n✅ ALL SEED DATA LOADED — PostgreSQL ready")
 
 
 if __name__ == "__main__":

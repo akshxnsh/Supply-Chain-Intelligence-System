@@ -5,3 +5,5 @@ __pycache__/
 gcp-key.json
 google-credentials.json
 *.json
+
+!.env.example

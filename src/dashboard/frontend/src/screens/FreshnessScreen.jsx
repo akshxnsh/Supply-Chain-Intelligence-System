@@ -198,7 +198,7 @@ export default function FreshnessScreen() {
           Data Freshness Monitor
         </h1>
         <p style={{ fontSize: 14, color: "var(--text-secondary)", marginTop: 6 }}>
-          Real-time freshness status for all configured BigQuery tables
+          Real-time freshness status for all configured tables
         </p>
       </div>
 

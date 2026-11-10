@@ -26,7 +26,7 @@ from src.agent.observability import (
 )
 from src.agent.schemas import SupplyChainAnalysis
 from src.agent.session import create_session_service
-from src.ingestion.bq_client import check_duplicate_alert, query_business_suppliers, save_alert, save_phoenix_trace_summary
+from src.ingestion.queries import check_duplicate_alert, query_business_suppliers, save_alert, save_phoenix_trace_summary
 
 
 from src.agent.freshness_agent import __all__ as _FRESHNESS_TOOL_NAMES
@@ -119,7 +119,7 @@ def _validate_result(result: dict, business_id: str) -> dict:
         flags.append(f"exposure_usd={exposure} is negative — resetting to 0")
         result["exposure_usd"] = 0
 
-    # --- supplier ID cross-check: flag any returned ID not in BQ ---
+    # --- supplier ID cross-check: flag any returned ID not in the database ---
     try:
         known_ids = {row["id"] for row in query_business_suppliers(business_id)}
         llm_ids = {
@@ -206,7 +206,7 @@ def _save_cycle_trace(
     severity_score: float,
     alert_fired: bool,
 ) -> None:
-    """Best-effort write of one cycle summary to phoenix_traces BQ table."""
+    """Best-effort write of one cycle summary to phoenix_traces table."""
     try:
         save_phoenix_trace_summary({
             "trace_id":   session_id,
@@ -478,7 +478,7 @@ async def run_probe_async(
 ) -> dict[str, Any]:
     """Send a free-text prompt through the full root-agent stack and return tool call trace.
 
-    Skips _parse_result, _validate_result, and _save_cycle_trace — no BigQuery writes.
+    Skips _parse_result, _validate_result, and _save_cycle_trace — no database writes.
     Retries up to _MAX_PROBE_RETRIES times on transient Gemini errors (503, 429, 504).
     Tool calls are accumulated across retries so partial evidence is never lost.
     passed=True if any FreshnessAgent tool ran, even if a 503 followed.
@@ -597,7 +597,7 @@ async def run_probe_async(
 
 
 def _persist_alert_if_new(result: dict, business_id: str) -> None:
-    """Preserve the existing post-run BigQuery alert persistence behavior."""
+    """Preserve the existing post-run alert persistence behavior."""
     if not result.get("alert_fired"):
         return
 

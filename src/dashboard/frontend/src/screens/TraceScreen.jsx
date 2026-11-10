@@ -4,12 +4,11 @@ import { API } from "../config";
 // ── Friendly labels for each tool ──────────────────────────────────────────────
 const TOOL_LABELS = {
   // freshness
-  check_bigquery_table_freshness: "🕒 Checking data freshness",
+  check_table_freshness: "🕒 Checking data freshness",
   identify_stale_tables:          "🧭 Identifying stale tables",
   refresh_connector:              "🔄 Triggering connector refresh",
   get_connector_status:           "📡 Checking connector status",
   wait_for_connector_completion:  "⏳ Waiting for sync",
-  sync_postgres_table_to_bigquery:"🔁 Syncing Postgres → BigQuery",
   refresh_stale_table:            "🔄 Refreshing stale data",
   refresh_all_stale_tables:       "🔄 Refreshing all stale data",
   // disruption / impact

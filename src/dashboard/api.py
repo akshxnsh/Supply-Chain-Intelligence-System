@@ -9,8 +9,7 @@ sys.path.insert(0, os.path.dirname(os.path.dirname(
 from src.agent.runtime import run_agent_cycle_async, _persist_alert_if_new
 from src.agent.tools import generate_purchase_order
 from src.agent.business_registry import list_businesses, get_business
-from src.ingestion.bq_client import run_query_safe
-from google.cloud import bigquery as _bq
+from src.ingestion.queries import query_alerts_page, query_all_alerts, query_suppliers_overview
 import asyncio as _asyncio
 from dataclasses import dataclass, field
 
@@ -155,31 +154,9 @@ def get_alerts(
     limit: int = Query(default=10, ge=1, le=100),
     offset: int = Query(default=0, ge=0),
 ):
-    """Returns past agent alerts from BigQuery with pagination support."""
+    """Returns past agent alerts from PostgreSQL with pagination support."""
     try:
-        rows = run_query_safe("""
-            SELECT
-                al.id, al.business_id, al.severity_score, al.exposure_usd,
-                al.status, CAST(al.created_at AS STRING) as created_at,
-                (SELECT ROUND(AVG(
-                    (COALESCE(c.relevance_score, 0.85)
-                     + COALESCE(c.helpfulness_score, 0.85)
-                     + COALESCE(c.reasoning_score, 0.85)
-                     + (1 - COALESCE(c.hallucination_score, 0.1))) / 4
-                ), 2)
-                 FROM `akshxnsh-supplychain.supply_chain.agent_calibration` c
-                 WHERE c.region = al.business_id
-                   AND c.calibration_applied = TRUE
-                 LIMIT 1) AS calibration_confidence
-            FROM `akshxnsh-supplychain.supply_chain.agent_alerts` al
-            WHERE al.business_id = @business_id
-            ORDER BY al.created_at DESC
-            LIMIT @limit OFFSET @offset
-        """, [
-            _bq.ScalarQueryParameter("business_id", "STRING", business_id),
-            _bq.ScalarQueryParameter("limit",        "INT64",  limit),
-            _bq.ScalarQueryParameter("offset",       "INT64",  offset),
-        ])
+        rows = query_alerts_page(business_id, limit, offset)
         return {"alerts": rows, "limit": limit, "offset": offset}
     except Exception as e:
         return {"alerts": [], "error": str(e)}
@@ -188,13 +165,7 @@ def get_alerts(
 def get_all_alerts(limit: int = Query(default=20, ge=1, le=100)):
     """Aggregate alerts across all registered businesses, ordered by severity."""
     try:
-        rows = run_query_safe("""
-            SELECT id, business_id, severity_score, exposure_usd,
-                   status, CAST(created_at AS STRING) as created_at
-            FROM `akshxnsh-supplychain.supply_chain.agent_alerts`
-            ORDER BY severity_score DESC, created_at DESC
-            LIMIT @limit
-        """, [_bq.ScalarQueryParameter("limit", "INT64", limit)])
+        rows = query_all_alerts(limit)
         total_exposure = sum(r.get("exposure_usd") or 0 for r in rows)
         return {"alerts": rows, "total_exposure": total_exposure, "count": len(rows)}
     except Exception as e:
@@ -202,7 +173,7 @@ def get_all_alerts(limit: int = Query(default=20, ge=1, le=100)):
 
 @app.post("/api/alerts/{alert_id}/acknowledge")
 def acknowledge_alert_endpoint(alert_id: str):
-    from src.ingestion.bq_client import acknowledge_alert
+    from src.ingestion.queries import acknowledge_alert
     try:
         acknowledge_alert(alert_id)
         return {"success": True, "alert_id": alert_id, "status": "acknowledged"}
@@ -213,23 +184,7 @@ def acknowledge_alert_endpoint(alert_id: str):
 def get_suppliers(business_id: str = Query(default=DEFAULT_BIZ)):
     """Returns the current supplier list with risk signals for the given business."""
     try:
-        rows = run_query_safe("""
-            SELECT
-                bs.supplier_name,
-                bs.country,
-                bs.product_category,
-                bs.annual_spend_usd,
-                (SELECT COUNT(*) - 1
-                 FROM `akshxnsh-supplychain.supply_chain.business_suppliers`
-                 WHERE business_id = @business_id
-                   AND product_category = bs.product_category) AS other_suppliers_count,
-                (SELECT ROUND(AVG(delay_days), 1)
-                 FROM `akshxnsh-supplychain.supply_chain.completed_orders`
-                 WHERE supplier_id = bs.id
-                   AND status = 'delivered') AS avg_delay_days
-            FROM `akshxnsh-supplychain.supply_chain.business_suppliers` bs
-            WHERE bs.business_id = @business_id
-        """, [_bq.ScalarQueryParameter("business_id", "STRING", business_id)])
+        rows = query_suppliers_overview(business_id)
         return {"suppliers": rows}
     except Exception as e:
         return {"suppliers": [], "error": str(e)}
@@ -271,7 +226,7 @@ class ApproveActionRequest(BaseModel):
 @app.post("/api/approve-action")
 def approve_action(req: ApproveActionRequest, business_id: str = Query(default=DEFAULT_BIZ)):
     from datetime import datetime, timezone
-    from src.ingestion.bq_client import save_calibration_approval, update_calibration_outcomes
+    from src.ingestion.queries import save_calibration_approval, update_calibration_outcomes
     approved_at = datetime.now(timezone.utc).isoformat()
     try:
         save_calibration_approval(
@@ -280,7 +235,7 @@ def approve_action(req: ApproveActionRequest, business_id: str = Query(default=D
             approved=True,
         )
     except Exception as e:
-        print(f"[APPROVAL] Warning: could not persist to BigQuery: {e}")
+        print(f"[APPROVAL] Warning: could not persist to PostgreSQL: {e}")
 
     # Run outcome calibration in the background so the response returns immediately.
     # update_calibration_outcomes() processes all approved records that are 30+ days
@@ -304,10 +259,10 @@ def approve_action(req: ApproveActionRequest, business_id: str = Query(default=D
 
 @app.get("/api/freshness")
 async def get_freshness():
-    """Return freshness status for all configured BigQuery tables."""
-    from src.agent.freshness_agent import check_bigquery_table_freshness
+    """Return freshness status for all configured tables."""
+    from src.agent.freshness_agent import check_table_freshness
     try:
-        rows = json.loads(await check_bigquery_table_freshness())
+        rows = json.loads(await check_table_freshness())
         total = len(rows)
         fresh = sum(1 for r in rows if not r["is_stale"])
         return {

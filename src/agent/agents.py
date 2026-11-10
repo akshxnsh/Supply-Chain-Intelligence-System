@@ -7,13 +7,12 @@ from src.agent.business_registry import get_business
 from src.agent.fivetran import create_fivetran_toolset
 from src.agent.freshness_config import FRESHNESS_TABLES as _FRESHNESS_TABLES
 from src.agent.freshness_agent import (
-    check_bigquery_table_freshness,
+    check_table_freshness,
     get_connector_status,
     identify_stale_tables,
     refresh_all_stale_tables,
     refresh_connector,
     refresh_stale_table,
-    sync_postgres_table_to_bigquery,
     wait_for_connector_completion,
 )
 from src.agent.observability import (
@@ -163,7 +162,7 @@ def create_root_agent() -> LlmAgent:
             "email. If a black swan was detected, do not generate a PO and "
             "require human review. After drafting, call save_alert_record with "
             "the disruption_id, severity_score, and exposure_usd from the "
-            "analysis to persist the alert to BigQuery."
+            "analysis to persist the alert to PostgreSQL."
         ),
         tools=[generate_purchase_order, generate_owner_email, save_alert_record],
         output_key="procurement_analysis",
@@ -199,24 +198,23 @@ def create_root_agent() -> LlmAgent:
         model=MODEL,
         mode="task",
         description=(
-            "Checks BigQuery table freshness and refreshes stale PostgreSQL-backed tables."
+            "Checks table freshness in PostgreSQL and refreshes stale tables through Fivetran."
         ),
         instruction=_instruction(
-            "Check configured BigQuery table freshness before analysis when source data may "
+            "Check configured table freshness before analysis when source data may "
             "be stale. Identify stale tables, map each table to its configured connector, "
             "request connector refresh through the Fivetran MCP interface, wait for completion, "
-            "run the PostgreSQL-to-BigQuery sync for that table, and verify freshness after "
+            "and verify freshness after "
             f"sync. Use the MCP-backed freshness tools and do not call Fivetran REST APIs. "
             f"Valid table names are: {_VALID_FRESHNESS_TABLES}."
         ),
         tools=[
-            check_bigquery_table_freshness,
+            check_table_freshness,
             identify_stale_tables,
             refresh_connector,
             get_connector_status,
             wait_for_connector_completion,
-            sync_postgres_table_to_bigquery,
-            refresh_stale_table,
+                    refresh_stale_table,
             refresh_all_stale_tables,
         ],
         output_key="freshness_analysis",

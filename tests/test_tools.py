@@ -32,7 +32,7 @@ async def test_generate_purchase_order_preserves_document_contract():
 
 
 @pytest.mark.asyncio
-async def test_save_alert_record_uses_existing_bigquery_layer(monkeypatch):
+async def test_save_alert_record_uses_existing_postgres_layer(monkeypatch):
     captured = {}
     monkeypatch.setattr(tools, "save_alert", lambda alert: captured.update(alert))
 

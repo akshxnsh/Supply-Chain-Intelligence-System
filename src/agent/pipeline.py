@@ -42,7 +42,7 @@ from src.agent.tools import (
 from src.detection.disruption_detector import detect_disruptions as _detect_disruptions
 from src.exposure.calculator import calculate_impact as _calculate_impact
 from src.suppliers.scorer import score_suppliers as _score_suppliers
-from src.ingestion.bq_client import (
+from src.ingestion.queries import (
     query_alternative_suppliers,
     query_business_suppliers,
     query_calibration_with_recency,

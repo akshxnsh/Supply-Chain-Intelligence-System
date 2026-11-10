@@ -4,29 +4,28 @@ from typing import Any
 
 from src.detection.disruption_detector import detect_disruptions as _detect_disruptions_sync
 from src.exposure.calculator import calculate_impact as _calculate_impact_sync
-from src.ingestion.bq_client import (
+from src.ingestion.queries import (
     query_alternative_suppliers,
     query_business_suppliers,
     query_calibration_with_recency,
     query_inventory,
     query_pending_orders,
     query_port_status,
-    query_recent_cycle_performance as _bq_query_recent_cycle_performance,
+    query_calibration_scores,
+    query_recent_cycle_performance as _query_recent_cycle_performance,
     query_recent_events,
     query_recent_weather_alerts,
-    query_severity_drift as _bq_query_severity_drift,
+    query_severity_drift as _query_severity_drift,
     query_supplier_reviews,
     query_supplier_timetable,
     query_tariff_updates,
-    run_query,
     save_alert,
 )
-from src.ingestion.bq_client import DATASET, PROJECT_ID
 from src.suppliers.scorer import score_suppliers as _score_suppliers_sync
 
 
 # ---------------------------------------------------------------------------
-# Async wrappers for business-logic functions that make their own BQ calls
+# Async wrappers for business-logic functions that make their own database calls
 # ---------------------------------------------------------------------------
 
 async def detect_disruptions(business_id: str = "demo-business-001") -> str:
@@ -56,11 +55,11 @@ async def score_suppliers(candidates: list[dict[str, Any]], calibration_baseline
 
 
 # ---------------------------------------------------------------------------
-# ADK tool functions — all BQ calls run in a thread to avoid blocking the loop
+# ADK tool functions — all database calls run in a thread to avoid blocking the loop
 # ---------------------------------------------------------------------------
 
 async def get_recent_disruptions(hours: int = 24) -> str:
-    """Fetch recent disruption events from BigQuery."""
+    """Fetch recent disruption events from PostgreSQL."""
     return json.dumps(
         await asyncio.to_thread(query_recent_events, hours=hours),
         default=str,
@@ -267,14 +266,14 @@ async def query_calibration_baseline(event_type: str, region: str) -> str:
 
 
 async def query_recent_cycle_performance(business_id: str) -> str:
-    """Return recent agent cycle success rate, avg latency, severity trend, and alert rate from Phoenix traces stored in BigQuery."""
-    result = await asyncio.to_thread(_bq_query_recent_cycle_performance, business_id, 10)
+    """Return recent agent cycle success rate, avg latency, severity trend, and alert rate from Phoenix traces stored in PostgreSQL."""
+    result = await asyncio.to_thread(_query_recent_cycle_performance, business_id, 10)
     return json.dumps(result, default=str)
 
 
 async def get_severity_calibration_drift(business_id: str) -> str:
     """Return the delta between the agent's recent predicted severity scores and the historical weighted baseline. A drift > 0.15 suggests the agent is over- or under-estimating risk."""
-    result = await asyncio.to_thread(_bq_query_severity_drift, business_id, 30)
+    result = await asyncio.to_thread(_query_severity_drift, business_id, 30)
     return json.dumps(result, default=str)
 
 
@@ -296,21 +295,7 @@ async def detect_black_swan(
     try:
         import statistics
 
-        calibration = await asyncio.to_thread(
-            run_query,
-            f"""
-            SELECT severity_scored
-            FROM `{PROJECT_ID}.{DATASET}.agent_calibration`
-            WHERE severity_scored IS NOT NULL
-            ORDER BY created_at DESC
-            LIMIT 50
-            """,
-        )
-        scores = [
-            row["severity_scored"]
-            for row in calibration
-            if row.get("severity_scored") is not None
-        ]
+        scores = await asyncio.to_thread(query_calibration_scores, 50)
         if len(scores) >= 5:
             news_mean = statistics.mean(scores)
             news_std = max(statistics.stdev(scores), 0.5)
@@ -354,7 +339,7 @@ async def save_alert_record(
     actions_json: str = "[]",
     status: str = "active",
 ) -> str:
-    """Persist a validated alert through the existing BigQuery layer."""
+    """Persist a validated alert through the existing PostgreSQL layer."""
     await asyncio.to_thread(
         save_alert,
         {

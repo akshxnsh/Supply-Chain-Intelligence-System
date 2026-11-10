@@ -1,7 +1,7 @@
 import json
 import logging
 
-from src.ingestion.bq_client import (
+from src.ingestion.queries import (
     query_inventory,
     query_pending_orders,
     query_shipments_at_risk,

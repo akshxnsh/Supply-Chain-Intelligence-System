@@ -1,4 +1,4 @@
-"""Configuration for BigQuery table freshness checks and connector mapping."""
+"""Configuration for table freshness checks and connector mapping."""
 
 from __future__ import annotations
 
