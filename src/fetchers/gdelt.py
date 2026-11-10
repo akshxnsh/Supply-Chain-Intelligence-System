@@ -1,0 +1,87 @@
+"""GDELT DOC 2.0 API - news articles (free, no key).
+
+Docs: https://blog.gdeltproject.org/gdelt-doc-2-0-api-debuts/
+Limits (observed Nov 2026): one request per 5 seconds per client, otherwise HTTP 429.
+The article list returns at most 250 records per call and carries NO article text, only
+title + url + domain + country, so the AI reader later works from titles.
+"""
+
+from __future__ import annotations
+
+import hashlib
+import re
+from datetime import datetime, timezone
+
+from src.fetchers.http import get_json
+
+GDELT_URL = "https://api.gdeltproject.org/api/v2/doc/doc"
+MIN_INTERVAL_SECONDS = 5.5
+TIMEOUT = (30, 90)  # GDELT is slow: the TLS handshake alone can take >5 s, a call ~15-20 s
+
+# Named searches. Each one feeds a signal type we alert on (port/strike, shipping lanes, trade rules).
+DEFAULT_QUERIES: dict[str, str] = {
+    "ports": '("port strike" OR "port closure" OR "port congestion" OR "dockworkers strike" OR "port workers strike")',
+    "shipping": '("shipping disruption" OR "canal closure" OR "strait closed" OR "shipping lane" OR "vessel attack" OR "container shortage")',
+    "trade": '(tariff OR "export ban" OR "import ban" OR "trade sanctions" OR "customs strike") (trade OR shipping OR imports)',
+}
+
+
+def article_params(query: str, timespan: str = "1d", maxrecords: int = 250) -> dict:
+    return {
+        "query": f"{query} sourcelang:english",
+        "mode": "artlist",
+        "format": "json",
+        "maxrecords": maxrecords,
+        "timespan": timespan,
+        "sort": "datedesc",
+    }
+
+
+def _clean_title(title: str) -> str:
+    # GDELT puts spaces around punctuation ("30 , 000"); collapse the obvious ones.
+    t = re.sub(r"\s+", " ", title or "").strip()
+    return re.sub(r"\s+([,.;:!?])", r"\1", t)
+
+
+def _parse_seen(value: str) -> str | None:
+    try:
+        return datetime.strptime(value, "%Y%m%dT%H%M%SZ").replace(tzinfo=timezone.utc).isoformat()
+    except (TypeError, ValueError):
+        return None
+
+
+def parse_articles(payload: dict, query_name: str | None = None) -> list[dict]:
+    """GDELT artlist JSON -> flat rows. article_id is a stable hash of the URL (the primary key)."""
+    rows = []
+    for a in payload.get("articles") or []:
+        url = a.get("url")
+        if not url:
+            continue
+        rows.append({
+            "article_id": hashlib.sha1(url.encode("utf-8")).hexdigest()[:16],
+            "url": url,
+            "title": _clean_title(a.get("title", "")),
+            "domain": a.get("domain"),
+            "language": a.get("language"),
+            "source_country": a.get("sourcecountry"),
+            "seen_at": _parse_seen(a.get("seendate")),
+            "query_name": query_name,
+        })
+    return rows
+
+
+def fetch_articles(query: str, query_name: str | None = None, timespan: str = "1d",
+                   maxrecords: int = 250, **http_kwargs) -> list[dict]:
+    http_kwargs.setdefault("timeout", TIMEOUT)
+    payload = get_json(GDELT_URL, article_params(query, timespan, maxrecords),
+                       min_interval=MIN_INTERVAL_SECONDS, backoff=6.0, **http_kwargs)
+    return parse_articles(payload, query_name)
+
+
+def fetch_all(timespan: str = "1d", queries: dict[str, str] | None = None, **http_kwargs) -> list[dict]:
+    """Run every named query, de-duplicating by article_id (an article can match several queries)."""
+    seen: dict[str, dict] = {}
+    for name, q in (queries or DEFAULT_QUERIES).items():
+        for row in fetch_articles(q, query_name=name, timespan=timespan, **http_kwargs):
+            seen.setdefault(row["article_id"], row)
+    return list(seen.values())

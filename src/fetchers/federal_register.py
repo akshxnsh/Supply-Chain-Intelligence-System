@@ -1,0 +1,74 @@
+"""Federal Register API - US tariff and trade notices (free, no key).
+
+Docs: https://www.federalregister.gov/developers/documentation/api/v1
+Why this source: it includes PROPOSED rules and notices with future effective / comment dates,
+which is what makes an early (heads-up) tariff alert possible.
+Scope: trade agencies only, plus the words tariff/duties/duty, otherwise the word "tariff" also
+matches unrelated documents (e.g. Medicare rate rules).
+"""
+
+from __future__ import annotations
+
+from datetime import date
+
+from src.fetchers.http import get_json
+
+URL = "https://www.federalregister.gov/api/v1/documents.json"
+DEFAULT_AGENCIES = (
+    "international-trade-commission",
+    "trade-representative-office-of-united-states",
+    "u-s-customs-and-border-protection",
+    "international-trade-administration",
+)
+DEFAULT_TYPES = ("RULE", "PRORULE", "NOTICE")
+TERM = "tariff OR duties OR duty"
+FIELDS = ("document_number", "title", "type", "publication_date", "effective_on",
+          "comments_close_on", "agency_names", "html_url", "abstract", "dates")
+PER_PAGE = 200
+
+
+def document_params(since: date | None = None, page: int = 1, agencies=DEFAULT_AGENCIES,
+                    types=DEFAULT_TYPES, per_page: int = PER_PAGE) -> dict:
+    p: dict = {
+        "conditions[agencies][]": list(agencies),
+        "conditions[type][]": list(types),
+        "conditions[term]": TERM,
+        "fields[]": list(FIELDS),
+        "order": "oldest" if since else "newest",
+        "per_page": per_page,
+        "page": page,
+    }
+    if since:
+        p["conditions[publication_date][gte]"] = since.isoformat()
+    return p
+
+
+def parse_documents(payload: dict) -> list[dict]:
+    rows = []
+    for d in payload.get("results") or []:
+        if not d.get("document_number"):
+            continue
+        rows.append({
+            "document_number": d["document_number"],
+            "title": d.get("title"),
+            "doc_type": d.get("type"),
+            "publication_date": d.get("publication_date"),
+            "effective_on": d.get("effective_on"),            # often null for proposed rules / notices
+            "comments_close_on": d.get("comments_close_on"),
+            "dates_text": d.get("dates"),                     # free text; the reader extracts future dates from it
+            "abstract": d.get("abstract"),
+            "agencies": "; ".join(d.get("agency_names") or []),
+            "url": d.get("html_url"),
+        })
+    return rows
+
+
+def fetch_documents(since: date | None = None, max_pages: int = 50, **http_kwargs) -> list[dict]:
+    """Documents published on/after `since` (incremental; oldest first), or the newest page if None."""
+    out: list[dict] = []
+    for page in range(1, max_pages + 1):
+        payload = get_json(URL, document_params(since, page), **http_kwargs)
+        out.extend(parse_documents(payload))
+        if since is None or page >= (payload.get("total_pages") or 1):
+            break
+    return out
