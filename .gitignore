@@ -12,3 +12,4 @@ connectors/*/files/
 connectors/*/configuration.local.json
 connectors/*/crash-reports/
 pipeline_run.log
+scripts/run_pipeline.bat
