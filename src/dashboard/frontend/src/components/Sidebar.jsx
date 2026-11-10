@@ -1,11 +1,12 @@
+// The first four read the real pipeline. The "demo" group is the original simulation (a replay of the Baltimore bridge collapse).
 const NAV = [
-  { id: "dashboard", label: "Dashboard",     Icon: IconGrid },
-  { id: "risks",     label: "Active Risks",  Icon: IconAlertTriangle },
-  { id: "freshness", label: "Freshness",     Icon: IconClock },
-  { id: "alerts",    label: "Alerts",        Icon: IconBell },
-  { id: "riskalerts", label: "Risk Alerts", Icon: IconShield },
-  { id: "ask",       label: "Ask ChainGuard", Icon: IconChat },
-  { id: "console",   label: "Agent Console", Icon: IconActivity },
+  { id: "dashboard",  label: "Dashboard",      Icon: IconGrid },
+  { id: "riskalerts", label: "Risk Alerts",    Icon: IconShield },
+  { id: "ask",        label: "Ask ChainGuard", Icon: IconChat },
+  { id: "freshness",  label: "Freshness",      Icon: IconClock },
+  { id: "risks",      label: "Active Risks",   Icon: IconAlertTriangle, demo: true },
+  { id: "alerts",     label: "Alerts",         Icon: IconBell,          demo: true },
+  { id: "console",    label: "Agent Console",  Icon: IconActivity,      demo: true },
 ]
 
 function IconGrid({ size = 17, color = "currentColor" }) {
@@ -168,11 +169,15 @@ export default function Sidebar({ active, onNavigate, collapsed, onToggle }) {
 
       {/* Nav */}
       <nav style={{ flex: 1, padding: "12px 8px" }}>
-        {NAV.map(({ id, label, Icon }) => {
+        {NAV.map(({ id, label, Icon, demo }, idx) => {
           const isActive = active === id
+          const firstDemo = demo && !NAV[idx - 1]?.demo
           return (
+            <div key={id}>
+            {firstDemo && (collapsed
+              ? <div style={{ borderTop: "1px solid var(--border)", margin: "10px 8px" }} />
+              : <div style={{ fontSize: 10, fontWeight: 700, letterSpacing: 0.8, color: "var(--text-muted)", textTransform: "uppercase", padding: "14px 12px 6px" }}>Simulation demo</div>)}
             <div
-              key={id}
               onClick={() => onNavigate(id)}
               title={collapsed ? label : undefined}
               style={{
@@ -202,6 +207,7 @@ export default function Sidebar({ active, onNavigate, collapsed, onToggle }) {
               </span>
               {!collapsed && label}
             </div>
+            </div>
           )
         })}
       </nav>
@@ -210,7 +216,7 @@ export default function Sidebar({ active, onNavigate, collapsed, onToggle }) {
       {!collapsed && (
         <div style={{ padding: "16px 20px", borderTop: "1px solid var(--border)" }}>
           <div style={{ fontSize: 11, color: "var(--text-muted)", marginBottom: 10 }}>
-            Baltimore Bridge Replay · Mar 26 2024
+            Analysis runs on a schedule
           </div>
           <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
             <div style={{
