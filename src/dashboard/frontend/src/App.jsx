@@ -9,6 +9,8 @@ import FreshnessScreen from "./screens/FreshnessScreen"
 import AskScreen from "./screens/AskScreen"
 import RiskAlertsScreen from "./screens/RiskAlertsScreen"
 import ShipmentsScreen from "./screens/ShipmentsScreen"
+import QualityScreen from "./screens/QualityScreen"
+import SettingsScreen from "./screens/SettingsScreen"
 
 import { API } from "./config";
 const DEFAULT_BIZ = "demo-business-001"
@@ -32,6 +34,8 @@ const SCREEN_TITLES = {
   ask:       "Ask ChainGuard",
   riskalerts: "Risk Alerts",
   shipments: "Shipments & Stock",
+  quality:   "AI Quality",
+  settings:  "How Alerts Work",
 }
 
 function SunIcon() {
@@ -231,6 +235,8 @@ export default function App() {
           {screen === "alerts"    && <AlertsScreen businessId={businessId} />}
           {screen === "riskalerts" && <RiskAlertsScreen key={businessId} businessId={businessId} />}
           {screen === "shipments"  && <ShipmentsScreen key={businessId} businessId={businessId} />}
+          {screen === "quality"    && <QualityScreen />}
+          {screen === "settings"   && <SettingsScreen key={businessId} businessId={businessId} />}
           {screen === "ask"       && <AskScreen businessId={businessId} />}
           {screen === "console"   && (
             <TraceScreen

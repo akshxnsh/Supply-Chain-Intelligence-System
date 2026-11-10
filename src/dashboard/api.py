@@ -360,6 +360,27 @@ def get_company(business_id: str = Query(default=DEFAULT_BIZ)):
         return {"business_id": business_id, "shipments": [], "stock": [], "error": str(e)}
 
 
+@app.get("/api/settings")
+@cached("settings", ttl=120)
+def get_settings(business_id: str = Query(default=DEFAULT_BIZ)):
+    """How alerts are decided for a business (read-only): its notify threshold and import country plus the scoring rules."""
+    from src.risk import company_view
+
+    try:
+        return company_view.trader_settings(business_id)
+    except Exception as e:
+        return {"business_id": business_id, "error": str(e)}
+
+
+@app.get("/api/quality")
+@cached("quality", ttl=300)
+def get_quality():
+    """Saved evaluation results for the AI reader and the judge's grader (measured on labelled samples; see eval/)."""
+    from src.evaluation.summary import load_summary
+
+    return load_summary()
+
+
 @app.get("/api/cache/stats")
 def cache_stats():
     """Hit / miss counters of the Redis response cache."""

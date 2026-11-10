@@ -1,0 +1,404 @@
+{
+ "model": "gemini-3.5-flash-lite",
+ "items": 50,
+ "scores": {
+  "all_items": {
+   "items": 50,
+   "relevance": {
+    "accuracy": 0.8,
+    "precision": 0.73,
+    "recall": 1.0,
+    "f1": 0.844,
+    "tp": 27,
+    "fp": 10,
+    "fn": 0,
+    "tn": 13
+   },
+   "event_type": {
+    "items": 27,
+    "correct": 27,
+    "accuracy": 1.0
+   },
+   "status": {
+    "items": 27,
+    "correct": 16,
+    "accuracy": 0.593
+   },
+   "start_date": {
+    "gold_with_date": 22,
+    "exact": 22,
+    "exact_rate": 1.0,
+    "within_1_day": 22,
+    "predicted_a_date_where_gold_has_none": 1,
+    "gold_without_date": 5
+   },
+   "imposing_country": {
+    "items": 27,
+    "correct": 25,
+    "accuracy": 0.926
+   },
+   "rate_percent": {
+    "gold_with_rate": 1,
+    "correct": 1,
+    "rate_invented_where_gold_has_none": 1
+   }
+  },
+  "unambiguous_items": {
+   "items": 28,
+   "relevance": {
+    "accuracy": 0.893,
+    "precision": 0.833,
+    "recall": 1.0,
+    "f1": 0.909,
+    "tp": 15,
+    "fp": 3,
+    "fn": 0,
+    "tn": 10
+   },
+   "event_type": {
+    "items": 15,
+    "correct": 15,
+    "accuracy": 1.0
+   },
+   "status": {
+    "items": 15,
+    "correct": 10,
+    "accuracy": 0.667
+   },
+   "start_date": {
+    "gold_with_date": 15,
+    "exact": 15,
+    "exact_rate": 1.0,
+    "within_1_day": 15,
+    "predicted_a_date_where_gold_has_none": 0,
+    "gold_without_date": 0
+   },
+   "imposing_country": {
+    "items": 15,
+    "correct": 15,
+    "accuracy": 1.0
+   },
+   "rate_percent": {
+    "gold_with_rate": 0,
+    "correct": 0,
+    "rate_invented_where_gold_has_none": 0
+   }
+  }
+ },
+ "cold_run": {
+  "items": 50,
+  "cache_hits": 0,
+  "cache_misses": 50,
+  "llm_calls": 16,
+  "retried_calls": 11,
+  "parse_failures": 0,
+  "failed_items": 0,
+  "input_tokens": 10569,
+  "output_tokens": 9849,
+  "cache_backend": "memory",
+  "naive_calls": 50,
+  "calls_saved": 34,
+  "call_reduction_pct": 68.0
+ },
+ "warm_run": {
+  "items": 50,
+  "cache_hits": 50,
+  "cache_misses": 0,
+  "llm_calls": 0,
+  "retried_calls": 0,
+  "parse_failures": 0,
+  "failed_items": 0,
+  "input_tokens": 0,
+  "output_tokens": 0,
+  "cache_backend": "memory",
+  "naive_calls": 50,
+  "calls_saved": 50,
+  "call_reduction_pct": 100.0
+ },
+ "mismatches": [
+  {
+   "item_id": "news:1c4fb5b29ec88a64",
+   "ambiguous": [
+    "relevant"
+   ],
+   "note": "export licence approval; no import cost / shipping effect for an importer",
+   "diffs": {
+    "relevant": [
+     false,
+     true
+    ]
+   }
+  },
+  {
+   "item_id": "news:32fd808a00428c84",
+   "ambiguous": [],
+   "note": "",
+   "diffs": {
+    "relevant": [
+     false,
+     true
+    ]
+   }
+  },
+  {
+   "item_id": "news:450df5e133c86b2f",
+   "ambiguous": [
+    "status",
+    "relevant"
+   ],
+   "note": "Canada extends its own tariff relief programme",
+   "diffs": {
+    "status": [
+     "ongoing",
+     "happened"
+    ],
+    "imposing_country": [
+     "Canada",
+     null
+    ]
+   }
+  },
+  {
+   "item_id": "news:67e4ee507b964917",
+   "ambiguous": [
+    "relevant"
+   ],
+   "note": "trade-relations news, no concrete rule",
+   "diffs": {
+    "relevant": [
+     false,
+     true
+    ]
+   }
+  },
+  {
+   "item_id": "news:68fff772509e2fd1",
+   "ambiguous": [
+    "relevant"
+   ],
+   "note": "",
+   "diffs": {
+    "relevant": [
+     false,
+     true
+    ]
+   }
+  },
+  {
+   "item_id": "news:6933e4519e8d16d6",
+   "ambiguous": [
+    "relevant"
+   ],
+   "note": "political promise only",
+   "diffs": {
+    "relevant": [
+     false,
+     true
+    ]
+   }
+  },
+  {
+   "item_id": "news:aafa3f5948ce9219",
+   "ambiguous": [
+    "relevant",
+    "status",
+    "start_date"
+   ],
+   "note": "Canadian import quota for 2027",
+   "diffs": {
+    "start_date": [
+     null,
+     "2027-01-01"
+    ],
+    "imposing_country": [
+     "Canada",
+     null
+    ]
+   }
+  },
+  {
+   "item_id": "news:bfa14cf4e7b80091",
+   "ambiguous": [
+    "relevant"
+   ],
+   "note": "opinion column about item 18's policy",
+   "diffs": {
+    "relevant": [
+     false,
+     true
+    ]
+   }
+  },
+  {
+   "item_id": "news:daa674f5b632d2e9",
+   "ambiguous": [
+    "relevant"
+   ],
+   "note": "one person's customs bill",
+   "diffs": {
+    "relevant": [
+     false,
+     true
+    ]
+   }
+  },
+  {
+   "item_id": "notice:2026-18723",
+   "ambiguous": [
+    "status"
+   ],
+   "note": "ITC institution of AD/CVD investigations",
+   "diffs": {
+    "status": [
+     "happened",
+     "ongoing"
+    ]
+   }
+  },
+  {
+   "item_id": "notice:2026-18775",
+   "ambiguous": [],
+   "note": "USTR comment request on foreign trade barriers to US exports",
+   "diffs": {
+    "relevant": [
+     false,
+     true
+    ]
+   }
+  },
+  {
+   "item_id": "notice:2026-18925",
+   "ambiguous": [],
+   "note": "",
+   "diffs": {
+    "status": [
+     "happened",
+     "ongoing"
+    ]
+   }
+  },
+  {
+   "item_id": "notice:2026-19379",
+   "ambiguous": [],
+   "note": "",
+   "diffs": {
+    "status": [
+     "happened",
+     "expected"
+    ]
+   }
+  },
+  {
+   "item_id": "notice:2026-19875",
+   "ambiguous": [
+    "status"
+   ],
+   "note": "ITC institution",
+   "diffs": {
+    "status": [
+     "happened",
+     "expected"
+    ]
+   }
+  },
+  {
+   "item_id": "notice:2026-19914",
+   "ambiguous": [
+    "status",
+    "start_date"
+   ],
+   "note": "five-year review vote date",
+   "diffs": {
+    "status": [
+     "happened",
+     "expected"
+    ]
+   }
+  },
+  {
+   "item_id": "notice:2026-20201",
+   "ambiguous": [
+    "status",
+    "start_date"
+   ],
+   "note": "expedited five-year review; date given is earlier than the notice",
+   "diffs": {
+    "status": [
+     "happened",
+     "expected"
+    ]
+   }
+  },
+  {
+   "item_id": "notice:2026-20382",
+   "ambiguous": [],
+   "note": "",
+   "diffs": {
+    "status": [
+     "happened",
+     "expected"
+    ]
+   }
+  },
+  {
+   "item_id": "notice:2026-20691",
+   "ambiguous": [],
+   "note": "",
+   "diffs": {
+    "status": [
+     "happened",
+     "ongoing"
+    ]
+   }
+  },
+  {
+   "item_id": "notice:2026-20699",
+   "ambiguous": [],
+   "note": "",
+   "diffs": {
+    "status": [
+     "happened",
+     "ongoing"
+    ]
+   }
+  },
+  {
+   "item_id": "notice:2026-20884",
+   "ambiguous": [],
+   "note": "CBP rule about travellers on trains, not goods",
+   "diffs": {
+    "relevant": [
+     false,
+     true
+    ]
+   }
+  },
+  {
+   "item_id": "notice:2026-22282",
+   "ambiguous": [
+    "status",
+    "start_date"
+   ],
+   "note": "five-year review scheduling",
+   "diffs": {
+    "status": [
+     "happened",
+     "expected"
+    ]
+   }
+  },
+  {
+   "item_id": "notice:2026-22345",
+   "ambiguous": [
+    "relevant"
+   ],
+   "note": "annual opportunity to request review; no change",
+   "diffs": {
+    "relevant": [
+     false,
+     true
+    ]
+   }
+  }
+ ]
+}

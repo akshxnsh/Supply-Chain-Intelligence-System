@@ -51,3 +51,30 @@ def stock_cover(business_id: str) -> list[dict]:
         out.append({"product_category": cat, "inventory_value_usd": round(s.inventory_value), "pending_orders_value_usd": round(pending),
                     "daily_demand_usd": s.daily_demand, "days_of_stock": s.days_of_stock})
     return out
+
+
+def trader_settings(business_id: str) -> dict:
+    """How alerts are decided for this business: its own settings plus the (read-only) rules in config/risk.yaml."""
+    from src.risk.config import load_config
+
+    cfg = load_config()
+    rows = run_query_readonly("SELECT importing_country, notify_threshold_usd FROM trader_settings WHERE business_id = %(b)s", {"b": business_id})
+    mine = rows[0] if rows else {}
+    a, conf, loss = cfg["alerts"], cfg["confidence"], cfg["loss_model"]
+    threshold = float(mine.get("notify_threshold_usd") or a["default_notify_threshold_usd"])
+    return {
+        "business_id": business_id,
+        "has_own_settings": bool(rows),
+        "importing_country": mine.get("importing_country") or "United States",
+        "notify_threshold_usd": threshold,
+        "watch_floor_usd": round(threshold * float(a["watch_floor_fraction"]), 2),
+        "rare_event_guard_usd": float(a["rare_event_guard_usd"]),
+        "repeat_loss_increase_factor": float(a["repeat_loss_increase_factor"]),
+        "likelihood_by_band": cfg["likelihood_by_band"],
+        "band_cutoffs": conf["band_cutoffs"],
+        "confidence_weights": conf["weights"],
+        "loss_model": {"delay_cost_rate_per_day": loss["delay_cost_rate_per_day"], "late_order_loss_rate": loss["late_order_loss_rate"],
+                       "tariff_horizon_days": loss["tariff_horizon_days"]},
+        "horizon_days": cfg["horizon_days"],
+        "default_delay_days": cfg["default_delay_days"],
+    }

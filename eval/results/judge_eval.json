@@ -1,0 +1,14 @@
+{
+ "cases": 14,
+ "exact_agreement": 0.714,
+ "agreement_fully_supported_vs_not": 0.929,
+ "hand_graded_unsupported": 4,
+ "llm_flagged_those_as_not_fully_supported": 4,
+ "confusion": {
+  "hand=yes llm=yes": 7,
+  "hand=partly llm=yes": 1,
+  "hand=no llm=partly": 3,
+  "hand=partly llm=partly": 2,
+  "hand=no llm=no": 1
+ }
+}
